@@ -1,0 +1,4 @@
+Compiled WebGPU model libraries (*.wasm) built by the MLC LLM project.
+Source: https://github.com/mlc-ai/binary-mlc-llm-libs
+Downloaded from: https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_87/base/
+Project: https://github.com/mlc-ai/mlc-llm (Apache License 2.0)

@@ -1,0 +1,14 @@
+/models/**
+!/models/**/
+!/models/**/LICENSE
+!/models/**/NOTICE
+!/models/**/ATTRIBUTION.txt
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+Thumbs.db
+/test-results/
+/node_modules/

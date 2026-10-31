@@ -1,0 +1,70 @@
+{
+  "webllm": {
+    "version": "0.2.87",
+    "libBase": "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_87/base/"
+  },
+  "wllama": {
+    "version": "3.8.1"
+  },
+  "families": {
+    "smollm2": {
+      "name": "SmolLM2",
+      "license": "Apache-2.0",
+      "licenseName": "Apache License 2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "copyright": "Hugging Face (HuggingFaceTB)",
+      "languages": "Mainly **English**. Other languages often come out broken or switch back to English.",
+      "weakSystemPrompt": true
+    },
+    "qwen2.5": {
+      "name": "Qwen2.5",
+      "license": "Apache-2.0",
+      "licenseName": "Apache License 2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "copyright": "Alibaba Cloud (Qwen team)",
+      "languages": "**29+ languages**, including English, Spanish, French, German, Portuguese, Arabic, Chinese and Japanese."
+    }
+  },
+  "tiers": {
+    "tiny": {
+      "family": "smollm2",
+      "label": "SmolLM2 135M",
+      "upstream": "HuggingFaceTB/SmolLM2-135M-Instruct",
+      "webllm": {
+        "f16": { "id": "SmolLM2-135M-Instruct-q0f16-MLC", "lib": "SmolLM2-135M-Instruct-q0f16_cs1k-webgpu.wasm", "quant": "q0f16", "vramMB": 360 },
+        "f32": { "id": "SmolLM2-135M-Instruct-q0f32-MLC", "lib": "SmolLM2-135M-Instruct-q0f32_cs1k-webgpu.wasm", "quant": "q0f32", "vramMB": 720 }
+      },
+      "gguf": { "repo": "bartowski/SmolLM2-135M-Instruct-GGUF", "file": "SmolLM2-135M-Instruct-Q4_K_M.gguf", "quant": "Q4_K_M", "sizeMB": 101, "minRamGB": 1 }
+    },
+    "small": {
+      "family": "smollm2",
+      "label": "SmolLM2 360M",
+      "upstream": "HuggingFaceTB/SmolLM2-360M-Instruct",
+      "webllm": {
+        "f16": { "id": "SmolLM2-360M-Instruct-q4f16_1-MLC", "lib": "SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu.wasm", "quant": "q4f16_1", "vramMB": 376 },
+        "f32": { "id": "SmolLM2-360M-Instruct-q4f32_1-MLC", "lib": "SmolLM2-360M-Instruct-q4f32_1_cs1k-webgpu.wasm", "quant": "q4f32_1", "vramMB": 580 }
+      },
+      "gguf": { "repo": "bartowski/SmolLM2-360M-Instruct-GGUF", "file": "SmolLM2-360M-Instruct-Q4_K_M.gguf", "quant": "Q4_K_M", "sizeMB": 271, "minRamGB": 2 }
+    },
+    "medium": {
+      "family": "qwen2.5",
+      "label": "Qwen2.5 0.5B",
+      "upstream": "Qwen/Qwen2.5-0.5B-Instruct",
+      "webllm": {
+        "f16": { "id": "Qwen2.5-0.5B-Instruct-q4f16_1-MLC", "lib": "Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm", "quant": "q4f16_1", "vramMB": 945 },
+        "f32": { "id": "Qwen2.5-0.5B-Instruct-q4f32_1-MLC", "lib": "Qwen2-0.5B-Instruct-q4f32_1_cs1k-webgpu.wasm", "quant": "q4f32_1", "vramMB": 1060 }
+      },
+      "gguf": { "repo": "Qwen/Qwen2.5-0.5B-Instruct-GGUF", "file": "qwen2.5-0.5b-instruct-q4_k_m.gguf", "quant": "Q4_K_M", "sizeMB": 469, "minRamGB": 3 }
+    },
+    "quality": {
+      "family": "qwen2.5",
+      "label": "Qwen2.5 1.5B",
+      "upstream": "Qwen/Qwen2.5-1.5B-Instruct",
+      "webllm": {
+        "f16": { "id": "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", "lib": "Qwen2-1.5B-Instruct-q4f16_1_cs1k-webgpu.wasm", "quant": "q4f16_1", "vramMB": 1630 },
+        "f32": { "id": "Qwen2.5-1.5B-Instruct-q4f32_1-MLC", "lib": "Qwen2-1.5B-Instruct-q4f32_1_cs1k-webgpu.wasm", "quant": "q4f32_1", "vramMB": 1889 }
+      },
+      "gguf": { "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf", "quant": "Q4_K_M", "sizeMB": 1066, "minRamGB": 4 }
+    }
+  }
+}

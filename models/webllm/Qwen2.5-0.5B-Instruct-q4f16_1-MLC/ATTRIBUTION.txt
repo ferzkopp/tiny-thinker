@@ -1,0 +1,9 @@
+Model:           Qwen2.5 0.5B Instruct (q4f16_1)
+Original model:  https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct
+Copyright:       Alibaba Cloud (Qwen team)
+License:         Apache License 2.0 (Apache-2.0), see LICENSE in this folder
+                 https://www.apache.org/licenses/LICENSE-2.0
+License text:    https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/blob/main/LICENSE
+Files from:      https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC (revision 32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad)
+Changes:         Converted and quantized (q4f16_1) to MLC format by the MLC LLM project; not modified further.
+Downloaded:      2026-10-30

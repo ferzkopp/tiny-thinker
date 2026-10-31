@@ -1,0 +1,37 @@
+{
+  "classroom": {
+    "tiers": ["tiny", "small", "medium", "quality"],
+    "engines": ["webllm", "gguf"],
+    "variants": ["f16", "f32"],
+    "revisions": {
+      "mlc-ai/SmolLM2-135M-Instruct-q0f16-MLC": "06fc409f2212adff29d93cbc742c1d6957302df5",
+      "mlc-ai/SmolLM2-135M-Instruct-q0f32-MLC": "ba1ecf858a4dfc6ac3e668c388a7088bdfb3c091",
+      "mlc-ai/SmolLM2-360M-Instruct-q4f16_1-MLC": "3a622fd89e0216e8bb10c410c007c786baa8a033",
+      "mlc-ai/SmolLM2-360M-Instruct-q4f32_1-MLC": "1e6b2ca3684e2bc8a6d39eb36e8d6cd51eb12bda",
+      "bartowski/SmolLM2-135M-Instruct-GGUF": "09816acd5d99df7be770d85ea30822623dab342c",
+      "bartowski/SmolLM2-360M-Instruct-GGUF": "7be6f65f1db715fe5dc5a4634c0d459b4eed42ec",
+      "mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC": "32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad",
+      "mlc-ai/Qwen2.5-0.5B-Instruct-q4f32_1-MLC": "8e6ec5f417c7d0e1414703ef619b8a24686e3ab0",
+      "Qwen/Qwen2.5-0.5B-Instruct-GGUF": "9217f5db79a29953eb74d5343926648285ec7e67",
+      "mlc-ai/Qwen2.5-1.5B-Instruct-q4f16_1-MLC": "9bd564b064631febf14deadcac492efb761d60c3",
+      "mlc-ai/Qwen2.5-1.5B-Instruct-q4f32_1-MLC": "a822ee410075710c9673005eafa017b90136b85d",
+      "Qwen/Qwen2.5-1.5B-Instruct-GGUF": "91cad51170dc346986eccefdc2dd33a9da36ead9"
+    },
+    "ggufSizes": {
+      "SmolLM2-135M-Instruct-Q4_K_M.gguf": 105454432,
+      "SmolLM2-360M-Instruct-Q4_K_M.gguf": 270590880,
+      "qwen2.5-0.5b-instruct-q4_k_m.gguf": 491400032,
+      "qwen2.5-1.5b-instruct-q4_k_m.gguf": 1117320736
+    },
+    "librarySha256": {
+      "SmolLM2-135M-Instruct-q0f16_cs1k-webgpu.wasm": "853eecabfe29da72742904c345581de8afbdb2e0ebc671daa79199d8f550a3fd",
+      "SmolLM2-135M-Instruct-q0f32_cs1k-webgpu.wasm": "cd367573bec87cbef4e109f0c14e8eed27b54cdbf9b341cb1b479b507a7e61b1",
+      "SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu.wasm": "bdb36e6719d7c22b086360456651233afe35c494407ccf1b52450a6ad07b6d45",
+      "SmolLM2-360M-Instruct-q4f32_1_cs1k-webgpu.wasm": "f7a7faecbf17327e66d5cef5a013eaec6ba667de929280078c87beed1a4eb868",
+      "Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm": "2a203aa9280044fd4b6d279c2c8bf3ef11e9e450435b973ef494e5d461e4f2dd",
+      "Qwen2-0.5B-Instruct-q4f32_1_cs1k-webgpu.wasm": "6ba8b8f85be2e86f7ca16454d199bfc83e672ec010f4f6e265240c22505f5829",
+      "Qwen2-1.5B-Instruct-q4f16_1_cs1k-webgpu.wasm": "155ef7359c859f7d646f4c5adc548d779475da3e3196701c7a9d4b82827559a8",
+      "Qwen2-1.5B-Instruct-q4f32_1_cs1k-webgpu.wasm": "8e8e617bb765757ab86555705469679880e9636db10c2198d26aa0f3d1ee8e90"
+    }
+  }
+}

@@ -1,0 +1,146 @@
+<!doctype html>
+<!--
+  Tiny Thinker: learn AI by playing with it. Small, open language models run right in the browser.
+  Source: https://github.com/ferzkopp/tiny-thinker
+  Copyright (c) 2026 Andreas Schiffler. MIT License (see LICENSE).
+  Developed with AI assistance (GPT 6.1 Sol, Claude 5.5).
+  This page: the chat, classroom modes and settings. Without a saved setup it redirects to index.html.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tiny Thinker</title>
+  <meta name="description" content="Chat with a small AI language model running in your browser and try classroom experiments with prompts, temperature and reply length.">
+  <meta name="author" content="Andreas Schiffler">
+  <meta name="application-name" content="Tiny Thinker">
+  <!-- Not useful as a search result: it needs a device setup and otherwise redirects to index.html. -->
+  <meta name="robots" content="noindex, follow">
+  <meta name="theme-color" content="#2f6fde">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="license" href="https://opensource.org/license/mit">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="chat.js"></script>
+</head>
+<body class="chat">
+  <a class="skip-link" href="#log">Skip to the chat</a>
+  <header class="top">
+    <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker</h1>
+    <div class="mode-picker">
+      <label for="mode-select">Mode</label>
+      <select id="mode-select"><option value="">Free chat</option></select>
+      <button class="help-btn" type="button" data-help="mode" aria-label="Explain modes" title="Explain modes" aria-haspopup="dialog">?</button>
+    </div>
+    <div class="model-info">
+      <span id="model-status" class="model-status loading" role="status">Loading</span>
+      <span id="setup-badge" class="badge">Loading…</span>
+      <button class="help-btn" type="button" data-help="model" aria-label="About this model" title="About this model" aria-haspopup="dialog">?</button>
+    </div>
+    <nav class="top-links">
+      <a id="change-setup" href="index.html?manual=1">Change setup</a>
+      <a href="licenses.html" data-licenses>Licenses</a>
+    </nav>
+    <div class="done-group">
+      <button id="restore-defaults" class="done-btn" type="button">Done</button>
+      <button class="help-btn" type="button" data-help="reset" aria-label="Explain Done" title="Explain Done" aria-haspopup="dialog">?</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="workspace">
+    <aside id="guide" class="zone zone-guide hidden" aria-labelledby="guide-title">
+      <div class="zone-tag">Instructions</div>
+      <button class="help-btn" type="button" data-help="steps" aria-label="Explain step buttons" title="Explain step buttons" aria-haspopup="dialog">?</button>
+      <div class="task-heading">
+        <h2 id="guide-title"></h2>
+        <span id="guide-time" class="task-time"></span>
+      </div>
+      <p id="guide-objective" class="objective"></p>
+      <ol id="guide-steps" class="steps"></ol>
+      <p id="guide-notice" class="guide-notice"></p>
+      <dl class="challenges">
+        <dt>Start small</dt><dd id="guide-entry"></dd>
+        <dt>Go further</dt><dd id="guide-stretch"></dd>
+      </dl>
+      <p class="mode-status"><span id="mode-status" role="status"></span> <button id="restore-preset" class="link-button hidden" type="button">Restore preset</button></p>
+      <details class="notes-section">
+        <summary>My notes</summary>
+        <div class="notes-label"><label for="reflection">I predict / I noticed / My explanation</label><button class="help-btn" type="button" data-help="notes" aria-label="Explain notes" title="Explain notes" aria-haspopup="dialog">?</button></div>
+        <textarea id="reflection" rows="5" maxlength="12000" placeholder="Use made-up examples, not personal details."></textarea>
+        <button id="download-notes" type="button">Download notes (.txt)</button>
+        <small>Notes stay in this tab unless you download them.</small>
+      </details>
+      <details class="classroom-safety">
+        <summary>Before you experiment</summary>
+        <p>Use made-up characters, not personal details. AI can be wrong, biased or inappropriate. Check facts outside this chat and tell your teacher about anything uncomfortable.</p>
+        <p>Questions and replies are processed on this device. Model and library downloads use the network. A prompt is not a safety filter.</p>
+      </details>
+    </aside>
+
+    <section class="zone zone-chat" aria-label="Chat">
+      <div class="zone-head">
+        <h2 class="zone-tag">Chat</h2>
+        <button class="help-btn" type="button" data-help="conversation" aria-label="Explain the chat" title="Explain the chat" aria-haspopup="dialog">?</button>
+      </div>
+      <div id="boot-warning" class="notice error">
+        If this message stays visible, the page scripts could not start. Open the page through a web server
+        (http://localhost or https://), not as a local file.
+      </div>
+
+      <section id="error-panel" class="notice error hidden" role="alert">
+        <strong id="error-title"></strong>
+        <div id="error-text"></div>
+        <p class="error-actions">
+          <button id="retry-btn" class="hidden" type="button">Try again</button>
+          <button id="fallback-btn" class="hidden" type="button">Switch to CPU engine (wllama)</button>
+        </p>
+      </section>
+
+      <div id="log" aria-live="polite" aria-label="Conversation" role="log" tabindex="0"></div>
+
+      <form id="composer">
+        <textarea id="input" aria-label="Your message" rows="2" maxlength="2000" placeholder="Type a message… (Enter to send, Shift+Enter for a new line)" disabled></textarea>
+        <div class="buttons">
+          <button id="send" class="primary" type="submit" disabled>Send</button>
+          <button id="stop" type="button" disabled>Stop</button>
+          <button id="clear" type="button">Clear</button>
+          <button id="fresh-run" type="button" title="Clear the model's memory of this chat and ask again">Fresh run</button>
+        </div>
+        <button class="help-btn composer-help" type="button" data-help="chat" aria-label="Explain chat buttons" title="Explain Send, Stop, Clear and Fresh run" aria-haspopup="dialog">?</button>
+      </form>
+    </section>
+
+    <h2 class="visually-hidden">Settings</h2>
+    <details id="settings" class="zone zone-settings settings" open>
+      <summary><span class="zone-tag">Settings</span> System prompt, reply length, temperature</summary>
+      <div class="settings-grid">
+        <div class="setting-label"><label for="system-prompt">System prompt</label><button class="help-btn" type="button" data-help="systemPrompt" aria-label="Explain system prompt" title="Explain system prompt" aria-haspopup="dialog">?</button></div>
+        <textarea id="system-prompt" maxlength="1000"></textarea>
+        <div class="setting-label"><label for="max-tokens">Max reply tokens</label><button class="help-btn" type="button" data-help="maxTokens" aria-label="Explain reply tokens" title="Explain reply tokens" aria-haspopup="dialog">?</button></div>
+        <input id="max-tokens" type="number" min="16" max="1024" step="16">
+        <div class="setting-label"><label for="temperature">Temperature</label><button class="help-btn" type="button" data-help="temperature" aria-label="Explain temperature" title="Explain temperature" aria-haspopup="dialog">?</button></div>
+        <input id="temperature" type="number" min="0" max="1.5" step="0.1">
+      </div>
+    </details>
+  </main>
+
+  <dialog id="load-panel" class="load-overlay" aria-labelledby="load-title" aria-describedby="load-text">
+    <img class="load-icon" src="icon.svg" alt="" width="64" height="64">
+    <h2 id="load-title">Waking up the model…</h2>
+    <progress id="load-progress" max="1" value="0" aria-labelledby="load-title"></progress>
+    <div id="load-text">Preparing…</div>
+    <small>The first visit downloads the model. Later visits are usually faster.</small>
+  </dialog>
+
+  <dialog id="setting-help-dialog" class="overlay" aria-labelledby="setting-help-title" aria-describedby="setting-help-text setting-help-example">
+    <div class="dialog-header">
+      <h2 id="setting-help-title"></h2>
+      <button id="close-setting-help" class="dialog-close" type="button" aria-label="Close setting explanation" title="Close">&times;</button>
+    </div>
+    <div class="dialog-body">
+      <p id="setting-help-text"></p>
+      <dl id="setting-help-facts" class="help-facts hidden"></dl>
+      <p id="setting-help-example" class="help-example"></p>
+    </div>
+  </dialog>
+</body>
+</html>

@@ -1,0 +1,9 @@
+Model:           SmolLM2 360M Instruct (q4f32_1)
+Original model:  https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct
+Copyright:       Hugging Face (HuggingFaceTB)
+License:         Apache License 2.0 (Apache-2.0), see LICENSE in this folder
+                 https://www.apache.org/licenses/LICENSE-2.0
+License text:    https://www.apache.org/licenses/LICENSE-2.0.txt
+Files from:      https://huggingface.co/mlc-ai/SmolLM2-360M-Instruct-q4f32_1-MLC (revision 1e6b2ca3684e2bc8a6d39eb36e8d6cd51eb12bda)
+Changes:         Converted and quantized (q4f32_1) to MLC format by the MLC LLM project; not modified further.
+Downloaded:      2026-10-30

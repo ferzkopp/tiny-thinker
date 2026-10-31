@@ -1,0 +1,26 @@
+# Tiny Thinker on Apache: cross-origin isolation (multithreaded CPU inference), MIME types and model caching.
+# Requires AllowOverride FileInfo (or All) for this folder.
+
+<IfModule mod_headers.c>
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Embedder-Policy "require-corp"
+
+  # Large model files; the app still revalidates manifest.json and catalog.json on every load.
+  <FilesMatch "\.(gguf|bin|wasm)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_mime.c>
+  AddType text/javascript .js .mjs
+  AddType application/json .json
+  AddType application/wasm .wasm
+  AddType application/octet-stream .gguf .bin
+  AddType image/svg+xml .svg
+  AddType "text/markdown; charset=utf-8" .md
+</IfModule>
+
+# Quantized model weights barely compress; compressing them again wastes server CPU.
+<IfModule mod_deflate.c>
+  SetEnvIfNoCase Request_URI "\.(gguf|bin)$" no-gzip
+</IfModule>

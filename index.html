@@ -1,0 +1,94 @@
+<!doctype html>
+<!--
+  Tiny Thinker: learn AI by playing with it. Small, open language models run right in the browser.
+  Source: https://github.com/ferzkopp/tiny-thinker
+  Copyright (c) 2026 Andreas Schiffler. MIT License (see LICENSE).
+  Developed with AI assistance (GPT 6.1 Sol, Claude 5.5).
+  This page: device check. It recommends an engine and model, then opens chat.html.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tiny Thinker – learn AI by playing with it, right in your browser</title>
+  <meta name="description" content="Tiny Thinker is a free classroom playground for learning how AI language models work. Small, open models run right in the browser, with no accounts, no servers and no data leaving the device.">
+  <meta name="keywords" content="AI literacy, language model, LLM, classroom, education, prompt engineering, WebGPU, WebAssembly, open source">
+  <meta name="author" content="Andreas Schiffler">
+  <meta name="application-name" content="Tiny Thinker">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#2f6fde">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Tiny Thinker">
+  <meta property="og:title" content="Tiny Thinker – learn AI by playing with it">
+  <meta property="og:description" content="A free classroom playground: small, open language models run right in the browser, with no accounts and no data leaving the device.">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="license" href="https://opensource.org/license/mit">
+  <link rel="author" href="https://github.com/ferzkopp">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Tiny Thinker",
+    "description": "Learn AI by playing with it. Small, open language models run right in the browser, with no accounts, no servers and no data leaving the device.",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Any (modern web browser)",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "Andreas Schiffler" },
+    "license": "https://opensource.org/license/mit",
+    "sameAs": "https://github.com/ferzkopp/tiny-thinker"
+  }
+  </script>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="check.js"></script>
+</head>
+<body>
+  <header class="top">
+    <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker</h1>
+    <span class="badge">Learn AI by playing with it, right in your browser</span>
+  </header>
+
+  <main class="page">
+    <div id="boot-warning" class="notice error">
+      If this message stays visible, the page scripts could not start. Open the page through a web server
+      (http://localhost or https://), not as a local file, and make sure JavaScript is enabled.
+    </div>
+
+    <section class="panel">
+      <h2>Checking your device</h2>
+      <ul id="checks" class="checks" aria-live="polite"></ul>
+    </section>
+
+    <section id="result" class="panel hidden">
+      <h2>Recommended setup</h2>
+      <p id="recommendation" class="recommendation"></p>
+      <div id="countdown" class="countdown hidden">
+        <span id="countdown-text"></span>
+        <button id="go-now" class="primary" type="button">Start now</button>
+        <button id="change" type="button">Change</button>
+      </div>
+    </section>
+
+    <p id="countdown-status" class="visually-hidden" role="status"></p>
+
+    <section id="unsupported" class="notice error hidden"></section>
+
+    <form id="override" class="panel hidden">
+      <h2>Choose engine and model</h2>
+      <fieldset>
+        <legend>Engine</legend>
+        <div id="engine-options"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Model</legend>
+        <div id="model-options"></div>
+      </fieldset>
+      <button class="primary" type="submit">Start chat</button>
+    </form>
+
+    <p><small>No accounts or inference server. Questions and replies are processed on your device. Models download from this site or Hugging Face; engine libraries load from jsDelivr. These asset requests use the network, and browser caches can be cleared or evicted.
+      <a href="licenses.html" data-licenses>Model licenses</a></small></p>
+  </main>
+</body>
+</html>

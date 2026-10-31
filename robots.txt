@@ -1,0 +1,8 @@
+# Tiny Thinker (https://github.com/ferzkopp/tiny-thinker)
+# Search engines may index the pages; model files are large downloads with no search value.
+# Robots only read this file at the site root: if Tiny Thinker lives in a subfolder,
+# copy these rules into the root robots.txt with the folder prefix, e.g. /playground/models/.
+User-agent: *
+Disallow: /models/
+Disallow: /tests/
+Disallow: /test-results/
