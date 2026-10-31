@@ -2,6 +2,9 @@
 
 # Tiny Thinker: Classroom LLM Playground
 
+> [!TIP]
+> **Try it live:** [Open Tiny Thinker](https://www.ferzkopp.net/tiny-thinker/) in your browser. No installation or account required.
+
 Learn AI by playing with it. Small, open models run right in the browser, with no accounts or inference server. Questions and replies are processed on-device.
 
 Created by Andreas Schiffler. Source: https://github.com/ferzkopp/tiny-thinker (MIT License).
@@ -38,37 +41,55 @@ To prepare without downloading every model, you can also serve a fresh clone imm
 
 The chat includes thirteen original, short activities, numbered in the Mode menu so a teacher can say "start mode 4":
 
-1. **Shakespeare remix:** compare Shakespearean, modern and pirate voices to see how instructions change an answer's style.
-2. **Break the silly rule:** try harmless word games to test whether the model follows a rule, and why prompts are not security locks.
-3. **Creativity dial:** repeat a story prompt at different temperatures to explore how randomness changes the results.
-4. **Prompt makeover:** add an audience, budget and format to a vague request, then check which details the model follows.
-5. **Story co-author:** explore suggested plot choices, then make your own creative decisions and write the next part yourself.
-6. **Design for good:** brainstorm a useful design, question its practicality and sketch your own improved version.
-7. **Fact detective:** check claims against trusted sources and test whether the model admits uncertainty about invented subjects.
-8. **Who gets to be the expert?:** compare descriptions of fictional leaders using different pronouns to investigate representation and possible stereotypes.
-9. **Language explorer:** compare English and Spanish replies, then change instructions or models to explore differences in language support.
-10. **Bug hunter:** trace logic puzzles by hand and check the model's steps for mistakes, not just its final answer.
-11. **Socratic coach:** ask for hints instead of finished answers and test whether the model catches a wrong guess or simply agrees.
-12. **Make it your own:** revise a generic AI draft with your own details and judgment to create something worth sharing.
-13. **Turtle artist:** generate Logo drawing commands, view the result in a turtle sandbox and edit the code to explore shapes and angles.
-
-The numbers follow the order in `experiments.js`; adding or reordering activities renumbers them.
-
-The page opens in **Free chat**: a plain chat with no instructions. The color-coded areas are instructions (amber, left), chat (blue) and settings (green, bottom).
-
-- Pick a **Mode** in the header. It immediately starts a new conversation, sets the system prompt, temperature and reply budget, and shows step-by-step instructions. Modes never change the selected model.
-- Steps contain buttons. Blue-outlined buttons fill the message box with a question (never auto-sent). Green-outlined buttons change a setting and start a fresh run so students can compare answers; the active one is filled. **Restore preset** appears when settings differ from the mode's preset.
-- Small **?** buttons next to the mode menu, model status, chat, step buttons, notes and each setting open simple explanations. They work with the keyboard; Escape closes the popup.
-- The header shows model status: *Loading*, *Ready* or *Not available*. While loading, a centered overlay blocks the page. If no model can be loaded, chatting and step buttons are disabled and the chat shows **Try again** (plus a CPU fallback for GPU failures).
-- **Fresh run** clears model context and refills the draft or previous question, keeping current settings and experiment notes. Earlier runs remain in the local notes export for comparison. Change one variable at a time.
-- **Clear** discards the conversation and exported turn records, but keeps reflection notes. Switching mode or **Done** (top right) also clears reflection notes, after confirmation when there is work to lose. Done returns to Free chat with default settings for the next student.
-- Notes and conversation records stay in tab memory until explicitly downloaded. They are lost on navigation/reload. Free-chat settings and model selection persist locally; mode presets do not overwrite saved free-chat settings. No student accounts or teacher dashboard are included.
-- The tiny and small models (SmolLM2) largely ignore the system prompt. For them, the app also repeats the system prompt at the start of the newest question before sending it; the chat shows the question unchanged. Measured on the Shakespeare preset, this raised in-style replies from 0/6 to 4/6 (tiny) and from 2/6 to 6/6 (small). The flag is `weakSystemPrompt` in `catalog.json`; the model info popup and system prompt help tell students about it.
-- In **13. Turtle artist**, each reply opens an inline SVG turtle sandbox with an editable Logo code box (`FD`, `BK`, `RT`, `LT`, `PU`, `PD`, `COLOR`, `WIDTH`, `HOME`, `CLEAR`, `REPEAT n [ ... ]`) and a **Run code** button. If a model reply has syntax errors or draws nothing, the chat runs a single automatic repair retry with the parser error message. Evaluated across four standard drawing tasks (square, triangle, star, pinwheel), valid drawable output was 3/4 first-try and 4/4 after one retry on `tiny` (SmolLM2 135M, though angles often need student tweaking), and 4/4 first-try on `small` (SmolLM2 360M), `medium` (Qwen2.5 0.5B) and `quality` (Qwen2.5 1.5B), with `quality` most accurately matching requested turn angles.
-
-Share a mode with a link such as `index.html?experiment=shakespeare` or `index.html?experiment=silly-rule`. The device check carries the mode through to chat. Unknown IDs fall back to Free chat; prompts and student text are never embedded in links.
+1. **Shakespeare remix:** compare answers in different voices.
+2. **Break the silly rule:** test a rule with harmless word games.
+3. **Creativity dial:** explore randomness by changing temperature.
+4. **Prompt makeover:** improve a vague request with specific details.
+5. **Story co-author:** turn AI suggestions into your own story.
+6. **Design for good:** brainstorm and improve a useful design.
+7. **Fact detective:** check facts and spot invented claims.
+8. **Who gets to be the expert?:** explore stereotypes in fictional leader descriptions.
+9. **Language explorer:** compare English and Spanish across models.
+10. **Bug hunter:** check logic puzzles for step-by-step mistakes.
+11. **Socratic coach:** ask for hints and test the feedback.
+12. **Make it your own:** give a generic AI draft your personal touch.
+13. **Turtle artist:** generate, draw and edit Logo shapes.
 
 See [CLASSROOM.md](CLASSROOM.md) for a sample lesson, mixed-age adaptations, safeguards and research references.
+
+## Using the playground
+
+### Choose an activity
+
+The page opens in **Free chat**, with no activity instructions. Pick a **Mode** in the header to start an experiment with its own instructions and preset settings. Changing modes starts a new conversation but keeps the selected model.
+
+Share an activity using a link such as [Shakespeare remix](https://www.ferzkopp.net/tiny-thinker/index.html?experiment=shakespeare) or [Turtle artist](https://www.ferzkopp.net/tiny-thinker/index.html?experiment=turtle). The device check carries the activity through to chat; links contain no conversation text.
+
+### Find your way around
+
+- **Instructions (amber, left):** follow the steps. Blue-outlined buttons fill in a question; press **Send** when ready. Green-outlined buttons change a setting and start a fresh run; the active choice is filled.
+- **Chat (blue):** send questions and compare replies. The header shows when the model is **Ready**. If loading fails, use **Try again** or the CPU fallback offered for GPU failures.
+- **Settings (green, bottom):** adjust the system prompt, reply length and temperature. **Restore preset** returns to the activity's settings.
+- **Help (?):** open an explanation beside a control. Help works with the keyboard; press Escape to close it.
+
+### Compare runs and save notes
+
+Change one variable at a time when comparing answers.
+
+| Control | What it does |
+|---|---|
+| **Fresh run** | Clears model context and refills your draft or previous question. Keeps settings, reflection notes and earlier runs for export. |
+| **Clear** | Discards the conversation and its export records, but keeps reflection notes. |
+| **Mode / Done** | Clears the conversation and reflection notes, with confirmation when there is work to lose. Done returns to Free chat with default settings. |
+| **My notes / Download notes** | Records your predictions and observations, then downloads them with conversation records for comparison. |
+
+Conversations and notes live only in the current tab: download them before navigating away or reloading. Model selection and free-chat settings are remembered locally; activity presets do not overwrite saved free-chat settings. There are no student accounts or teacher dashboard.
+
+### Draw with Turtle artist
+
+In **13. Turtle artist**, replies include a drawing and editable Logo code. Change the code and press **Run code** to explore the result. The **?** beside **Turtle sandbox** explains the supported commands and syntax.
+
+Small models can produce incorrect shapes or angles even when the code runs. Check the drawing yourself and use the editor to improve it.
 
 ## Device and model selection
 
@@ -240,6 +261,15 @@ The app does not intentionally send prompts or replies to an inference service. 
 Self-hosting the weights does not self-host the engine libraries, remove all external requests, or guarantee an offline reload. No service worker is included. Small open models can invent facts, ignore instructions, repeat stereotypes or produce inappropriate text. Prompts are not safety filters. Use teacher supervision and your school's policies, particularly for younger students, and keep personal information out of prompts and notes.
 
 ## Development checks
+
+### Implementation notes
+
+- **Activity catalog:** [experiments.js](experiments.js) defines the modes. Their menu numbers follow catalog order, so adding or reordering activities renumbers them. Unknown activity IDs in links fall back to Free chat.
+- **Small-model instructions:** tiny and small (SmolLM2) often ignore system prompts. With `weakSystemPrompt` enabled in [catalog.json](catalog.json), the app also repeats those instructions before the newest question; the displayed question is unchanged. In a limited Shakespeare comparison, in-style replies rose from 0/6 to 4/6 on tiny and from 2/6 to 6/6 on small.
+- **Turtle sandbox:** replies render as inline SVG using a restricted Logo interpreter, not arbitrary JavaScript. Supported commands are `FD`, `BK`, `RT`, `LT`, `PU`, `PD`, `COLOR`, `WIDTH`, `HOME`, `CLEAR` and `REPEAT n [ ... ]`. Syntax errors or empty drawings trigger one automatic repair attempt with parser feedback.
+- **Turtle evaluation:** across four drawing tasks (square, triangle, star and pinwheel), tiny produced drawable code on 3/4 first attempts and 4/4 after repair; small, medium and quality produced drawable code on 4/4 first attempts. These limited checks do not establish shape correctness; angles can still need editing.
+
+### Run the checks
 
 No Node packages are required to run the app. For the standard-library tests, use Python 3.8+ and a recent Node.js with built-in ES-module detection (Node 22.7+):
 
