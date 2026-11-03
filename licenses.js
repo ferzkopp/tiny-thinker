@@ -64,7 +64,9 @@ export function renderLicenses(container) {
     el('ul', {},
       el('li', {}, link('WebLLM', 'https://github.com/mlc-ai/web-llm'), ` ${CATALOG.webllm.version} – Apache License 2.0 (including the compiled MLC model libraries)`),
       el('li', {}, link('wllama', 'https://github.com/ngxson/wllama'), ` ${CATALOG.wllama.version} – MIT License, bundles `,
-        link('llama.cpp', 'https://github.com/ggml-org/llama.cpp'), ' (MIT License)')),
+        link('llama.cpp', 'https://github.com/ggml-org/llama.cpp'), ' (MIT License)'),
+      el('li', {}, link('jslogo', 'https://github.com/inexorabletash/jslogo'), ' by Joshua Bell, revision 26dfcac – Apache License 2.0 (',
+        link('license', 'vendor/jslogo/LICENSE.txt'), ', ', link('attribution and local changes', 'vendor/jslogo/README.md'), ')')),
   );
 }
 

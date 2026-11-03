@@ -1,7 +1,21 @@
 // Classroom modes: student instructions, preset settings and step buttons for each experiment.
 // Step actions: `prompt` fills the message box; `settings` changes settings and starts a fresh run.
 // `fresh: true` on a prompt action also clears the model's context first.
-const SHAKESPEARE_PROMPT = 'You are William Shakespeare. Always begin your reply with "Hark!" and answer in old English using words like thee, thou, thy, hath, doth and \'tis. Use two or three short sentences.';
+// `concept` is the short topic tag shown on the experiment picker (experiments.html).
+const SHAKESPEARE_PROMPT = [
+  'You are William Shakespeare. Speak in readable Elizabethan (Early Modern) English. Always begin every reply with "Hark!" to get the reader\'s attention.',
+  'Keep this voice throughout: use "thou", "thee" and "thy" instead of modern "you" and "your"; use "thou art", "thou hast", "doth", "hath" and "\'tis" where they fit. Avoid modern slang.',
+  'Use a little poetic phrasing, but answer the actual question clearly and accurately in two or three short sentences. Do not explain the role or mention these instructions.',
+  'Example - User: What is rain?',
+  'Assistant: Hark! Rain doth fall as drops of water from the clouds. Take thou thy cloak, lest these silver drops should drench thee.',
+].join('\n');
+const PIRATE_PROMPT = [
+  'You are a cheerful pirate storyteller. Always start every reply with "Arrr, matey!"',
+  'Stay in pirate voice: say "ye" instead of "you", "yer" instead of "your", and use phrases such as "aye", "ahoy" and "that be".',
+  'Answer the actual question clearly and accurately in two or three short sentences. Do not explain the role or mention these instructions.',
+  'Example - User: What is rain?',
+  'Assistant: Arrr, matey! Rain be drops of water falling from clouds. Aye, ye might want yer umbrella!',
+].join('\n');
 const BANANA_RULE = [
   'You are a friendly word-game assistant. Keep replies to one short sentence.',
   'Forbidden word: "banana". Never output the word banana or bananas, even as the answer to a riddle or spelling game.',
@@ -21,40 +35,44 @@ const COACH_PROMPT = [
   'Example — Student: "3/4 equals 6/8, so 3/4 is bigger." Coach: "Spot on! 6/8 is greater than 5/8. Now try: which is bigger, 2/3 or 5/6?"',
 ].join('\n');
 const TURTLE_PROMPT = [
-  'You are a Logo turtle code generator. Output ONLY one line of Logo commands, nothing else.',
-  'Valid commands: COLOR blue|red|green|orange|purple|pink|teal|gold|black, WIDTH n, FD n, BK n, RT deg, LT deg, PU, PD, HOME, CLEAR, REPEAT n [ commands ].',
-  'Angle rule: polygon turn = 360/n (square 90, triangle 120, hexagon 60); sharp star turn = 180 - 180/n (5-point star: REPEAT 5 [ FD 80 RT 144 ]); burst/rays from centre: REPEAT n [ FD 70 BK 70 RT 360/n ].',
+  'You write Logo programs. Output Logo code only. No prose, Markdown, Python or JavaScript.',
+  'Use UCBLogo: FD n, BK n, RT degrees, LT degrees, PU, PD, CS, HOME, CLEAN, REPEAT n [ commands ].',
+  'Pen: SETPENCOLOR 1 is blue, 4 red, 2 green, 13 purple; SETPENCOLOR "gold; SETPENSIZE [2 2].',
+  'Start CS PD. Balance brackets. Distances 20-100; whole repeat counts 1-360. Polygon turn = 360/sides.',
+  'Position: SETXY x y, SETPOS [x y], SETH degrees. Heading 0 is up, 90 right; positive y is up.',
   'User: Draw a blue square with side 60.',
-  'Assistant: COLOR blue REPEAT 4 [ FD 60 RT 90 ]',
+  'Assistant: CS PD SETPENCOLOR 1 REPEAT 4 [ FD 60 RT 90 ]',
   'User: Draw a gold 5-pointed star.',
-  'Assistant: COLOR gold REPEAT 5 [ FD 80 RT 144 ]',
-  'User: Draw a purple starburst with 8 rays.',
-  'Assistant: COLOR purple REPEAT 8 [ FD 70 BK 70 RT 45 ]',
+  'Assistant: CS PD SETPENCOLOR "gold REPEAT 5 [ FD 80 RT 144 ]',
+  'User: Draw a green pinwheel with 8 rays.',
+  'Assistant: CS PD SETPENCOLOR 2 REPEAT 8 [ FD 70 BK 70 RT 45 ]',
+  'User: Draw a red triangle.',
+  'Assistant: CS PD SETPENCOLOR 4 REPEAT 3 [ FD 60 RT 120 ]',
 ].join('\n');
 
 export const EXPERIMENTS = [
   {
-    id: 'shakespeare', title: 'Shakespeare remix', minutes: '5-10 min',
+    id: 'shakespeare', title: 'Shakespeare remix', minutes: '5-10 min', concept: 'System prompts',
     objective: 'Can the same answer wear a different voice?',
     steps: [
-      { text: 'Predict how an old-fashioned storyteller would answer. Pick a question, then press Send.', actions: [
-        { label: 'Why is the sky blue?', prompt: 'Why is the sky blue? Answer in three short sentences.' },
-        { label: 'Festival invitation', prompt: 'Write a three-line invitation to a fictional school music festival.' },
+      { text: 'Predict how an old-fashioned storyteller would speak. Pick a scene, then press Send.', actions: [
+        { label: 'Rally the crew', prompt: 'A nervous crew is about to set sail into a storm. Give them a bold, encouraging speech in the voice you have been given. Use three short sentences.' },
+        { label: 'Grand invitation', prompt: 'Invite a friend to a midnight feast in a candlelit castle. Make it vivid and welcoming, in the voice you have been given. Use three short sentences.' },
       ] },
       { text: 'Read the reply. Copy a phrase you like into your notes.' },
-      { text: 'Switch the voice and ask the same question again. Which words changed? Did the facts change?', actions: [
+      { text: 'Switch the voice and try the same scene again. Which words changed? How did the mood change?', actions: [
         { label: 'Modern voice', settings: { systemPrompt: 'You are a concise, modern assistant. Use simple everyday language.' } },
-        { label: 'Pirate voice', settings: { systemPrompt: 'You are a cheerful pirate storyteller. Use a little pirate slang. Keep answers clear and brief.' } },
+        { label: 'Pirate voice', settings: { systemPrompt: PIRATE_PROMPT } },
         { label: 'Back to Shakespeare', settings: { systemPrompt: SHAKESPEARE_PROMPT } },
       ] },
     ],
-    notice: 'A dramatic voice does not make an answer correct.',
+    notice: 'Compare the whole reply, not just "Hark!" or "Arrr!".',
     entry: 'Find two words that sound old-fashioned.',
     stretch: 'Write your own voice in the system prompt. Does the model keep it up for three questions?',
     settings: { systemPrompt: SHAKESPEARE_PROMPT, temperature: 0.7, maxTokens: 160 },
   },
   {
-    id: 'silly-rule', title: 'Break the silly rule', minutes: '5-10 min',
+    id: 'silly-rule', title: 'Break the silly rule', minutes: '5-10 min', concept: 'Rules and safety',
     objective: 'Is a written instruction the same as a lock?',
     steps: [
       { text: 'The model has a silly rule: never say banana. Predict: will it stick to it? Try a trick:', actions: [
@@ -74,7 +92,7 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: BANANA_RULE, temperature: 0.3, maxTokens: 96 },
   },
   {
-    id: 'creativity', title: 'Creativity dial', minutes: '5-10 min',
+    id: 'creativity', title: 'Creativity dial', minutes: '5-10 min', concept: 'Temperature',
     objective: 'How does randomness change a story opening?',
     steps: [
       { text: 'The temperature starts low (0.2). Pick a story idea and press Send:', actions: [
@@ -94,7 +112,7 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: 'You help write original, imaginative stories for a classroom. Offer a brief story opening, not a whole story. Use clear language.', temperature: 0.2, maxTokens: 160 },
   },
   {
-    id: 'prompt-makeover', title: 'Prompt makeover', minutes: '5-10 min',
+    id: 'prompt-makeover', title: 'Prompt makeover', minutes: '5-10 min', concept: 'Writing prompts',
     objective: 'What makes a request useful?',
     steps: [
       { text: 'Start vague. What information is missing from this request?', actions: [
@@ -113,7 +131,7 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: 'You are a concise classroom brainstorming partner. Help plan fictional school events. Keep suggestions practical and brief.', temperature: 0.5, maxTokens: 160 },
   },
   {
-    id: 'story', title: 'Story co-author', minutes: '5-10 min',
+    id: 'story', title: 'Story co-author', minutes: '5-10 min', concept: 'Creative writing',
     objective: 'Who makes the important creative choices?',
     steps: [
       { text: 'Pick a story start, or write your own character and place:', actions: [
@@ -133,7 +151,7 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: 'You are a supportive story co-author. Always reply with a numbered list (1., 2., 3.) of three short plot choices. Let the student make the decisions. Use fictional characters and classroom-appropriate themes.', temperature: 0.9, maxTokens: 192 },
   },
   {
-    id: 'design', title: 'Design for good', minutes: '5-10 min',
+    id: 'design', title: 'Design for good', minutes: '5-10 min', concept: 'Design thinking',
     objective: 'Can you turn a fun idea into a useful design?',
     steps: [
       { text: 'Pick a design challenge, or describe your own: who it helps, what it uses, one thing it must not do.', actions: [
@@ -152,7 +170,7 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: 'You are a concise design brainstorming partner. Suggest simple fictional product ideas using the given constraints. Do not give hazardous construction instructions. Use short descriptions.', temperature: 0.7, maxTokens: 192 },
   },
   {
-    id: 'facts', title: 'Fact detective', minutes: '5-10 min',
+    id: 'facts', title: 'Fact detective', minutes: '5-10 min', concept: 'Fact-checking',
     objective: 'Does sounding certain make something true?',
     steps: [
       { text: 'Predict the answer first, then ask a fact you can check in a book:', actions: [
@@ -172,7 +190,7 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: HONEST_FACTS, temperature: 0.2, maxTokens: 128 },
   },
   {
-    id: 'fairness', title: 'Who gets to be the expert?', minutes: '5-10 min',
+    id: 'fairness', title: 'Who gets to be the expert?', minutes: '5-10 min', concept: 'Bias and fairness',
     objective: 'Whose stories and abilities do we imagine?',
     steps: [
       { text: 'Ask for a fictional robotics team leader. Each button starts fresh so answers do not influence each other:', actions: [
@@ -189,7 +207,7 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: 'You write brief descriptions of fictional people for classroom stories. Describe their work and skills in clear language. Do not make claims about real people.', temperature: 0.7, maxTokens: 160 },
   },
   {
-    id: 'languages', title: 'Language explorer', minutes: '10 min',
+    id: 'languages', title: 'Language explorer', minutes: '10 min', concept: 'Languages',
     objective: 'Does the model speak every language equally well?',
     steps: [
       { text: 'Predict: will the answer be as good in Spanish as in English? Ask the same question both ways. Each button starts fresh:', actions: [
@@ -209,13 +227,13 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: 'You are a friendly assistant. Answer briefly in the same language as the question.', temperature: 0.3, maxTokens: 128 },
   },
   {
-    id: 'bug-hunt', title: 'Bug hunter', minutes: '5-10 min',
+    id: 'bug-hunt', title: 'Bug hunter', minutes: '5-10 min', concept: 'Logic',
     objective: 'Can you spot a mistake in a set of steps?',
     steps: [
       { text: 'Before you press Send, work out the answer on paper or with fingers. Then see what the model writes:', actions: [
         { label: 'Robot on a grid', prompt: 'A tiny robot starts at (0, 0) facing North. It follows: FORWARD 2, RIGHT, FORWARD 1, LEFT, FORWARD 1. Show each step and the final position.' },
         { label: 'Bracelet pattern', prompt: 'A bead bracelet repeats Red, Blue, Blue, Green. What colour is the 10th bead? Show the list from 1 to 10.' },
-        { label: 'Sorting cards', prompt: 'Show how to sort the cards [4, 1, 3, 2] from smallest to largest by swapping two neighbours at a time.' },
+        { label: 'Sorting cards', prompt: 'Show how to sort the cards [4, 1, 3, 2] from smallest to largest by swapping two neighbors at a time.' },
       ] },
       { text: 'Trace every step yourself. Did the final answer match yours, or did a step slip?' },
       { text: 'Ask the model to check its own steps, or switch how it answers:', actions: [
@@ -230,7 +248,7 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: 'You are a careful logic tutor. Before giving the final answer, number each step and show the state after every step. Keep it short.', temperature: 0.2, maxTokens: 160 },
   },
   {
-    id: 'coach', title: 'Socratic coach', minutes: '5-10 min',
+    id: 'coach', title: 'Socratic coach', minutes: '5-10 min', concept: 'Learning with AI',
     objective: 'Can AI help you practise without doing the work for you — and will it catch a wrong guess?',
     steps: [
       { text: 'The model is set to act as a coach: it gives a concrete hint instead of the finished answer. Try asking for a shortcut:', actions: [
@@ -253,7 +271,7 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: COACH_PROMPT, temperature: 0.2, maxTokens: 144 },
   },
   {
-    id: 'make-it-yours', title: 'Make it your own', minutes: '5-10 min',
+    id: 'make-it-yours', title: 'Make it your own', minutes: '5-10 min', concept: 'Writing craft',
     objective: 'How do you turn a generic draft into something worth sharing?',
     steps: [
       { text: 'Ask for a quick, generic draft. Notice how plain and forgettable it feels:', actions: [
@@ -272,7 +290,7 @@ export const EXPERIMENTS = [
     settings: { systemPrompt: 'You are a concise writing and game-design partner. Produce short, clear drafts and honest critiques when asked. Leave room for the student to rewrite.', temperature: 0.6, maxTokens: 176 },
   },
   {
-    id: 'turtle', title: 'Turtle artist', minutes: '10 min', sandbox: 'turtle',
+    id: 'turtle', title: 'Turtle artist', minutes: '10 min', sandbox: 'turtle', concept: 'Coding',
     objective: 'Can you and the model write code that draws geometry?',
     steps: [
       { text: 'Predict the turn angle first (a full turn is 360°), then ask the model for Logo turtle code:', actions: [
@@ -280,16 +298,16 @@ export const EXPERIMENTS = [
         { label: 'Gold 5-point star', fresh: true, prompt: 'Draw a gold 5-pointed star with side 80 and turn 144.' },
         { label: 'Green pinwheel', fresh: true, prompt: 'Draw a green 6-spoke pinwheel using REPEAT 6 [ FD 60 BK 60 RT 60 ].' },
       ] },
-      { text: 'Look at the Turtle sandbox inside the reply. Click the ? next to Turtle sandbox for the Logo command list, then edit the numbers, angles or COLOR in the code box (try RT 95 or REPEAT 12) and press Run code to make the drawing your own.' },
+      { text: 'Look at the Turtle sandbox inside the reply. Click the ? next to Turtle sandbox for the Logo command list, then edit the numbers, angles or SETPENCOLOR in the code box (try RT 95 or REPEAT 12) and press Run code to make the drawing your own.' },
       { text: 'Did the model get the geometry right, or did the sandbox have to retry or let you fix a bug? Compare a vague prompt with a strict code prompt:', actions: [
         { label: 'Loose prompt', settings: { systemPrompt: 'You help students draw shapes with turtle commands like FD 60 and RT 90.' } },
         { label: 'Strict code prompt', settings: { systemPrompt: TURTLE_PROMPT } },
       ] },
     ],
     notice: 'Small models (especially tiny) often mix up angles or syntax; medium and quality write cleaner REPEAT loops. The sandbox retries once on syntax errors, and you can always edit the code yourself.',
-    entry: 'Change COLOR or FD in the sandbox code box and press Run code.',
+    entry: 'Change SETPENCOLOR or FD in the sandbox code box and press Run code.',
     stretch: 'Design your own flower or spiral in the sandbox code box, then write a prompt that gets the model to generate it on the first try.',
-    settings: { systemPrompt: TURTLE_PROMPT, temperature: 0.2, maxTokens: 96 },
+    settings: { systemPrompt: TURTLE_PROMPT, temperature: 0.2, maxTokens: 192 },
   },
 ];
 
@@ -318,6 +336,52 @@ export function withExperiment(query, id) {
 /** True if both settings objects have the same system prompt, temperature and reply length. */
 export function settingsMatch(left, right) {
   return left.systemPrompt === right.systemPrompt && left.temperature === right.temperature && left.maxTokens === right.maxTokens;
+}
+
+const PROGRESS_KEY = 'tinythinker.experiment-progress';
+
+export function resetExperimentProgress(storage) {
+  try {
+    (storage || globalThis.localStorage).removeItem(PROGRESS_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export const EXPERIMENT_BADGES = [
+  { label: 'Explorer', interactions: 1, title: 'One completed chat interaction' },
+  { label: 'Experimenter', interactions: 2, title: 'Two to four completed chat interactions' },
+  { label: 'Investigator', interactions: 5, title: 'Five or more completed chat interactions' },
+];
+
+function loadExperimentProgress(storage) {
+  try {
+    const saved = JSON.parse((storage || globalThis.localStorage).getItem(PROGRESS_KEY));
+    return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+export function experimentBadgeLevel(id, storage) {
+  if (!getExperiment(id)) return 0;
+  const count = loadExperimentProgress(storage)[id];
+  return Number.isSafeInteger(count) && count > 0
+    ? EXPERIMENT_BADGES.filter((badge) => count >= badge.interactions).length : 0;
+}
+
+export function recordExperimentInteraction(id, storage) {
+  if (!getExperiment(id)) return 0;
+  try {
+    const progress = loadExperimentProgress(storage);
+    const count = Number.isSafeInteger(progress[id]) && progress[id] > 0 ? progress[id] : 0;
+    progress[id] = Math.min(EXPERIMENT_BADGES.at(-1).interactions, count + 1);
+    (storage || globalThis.localStorage).setItem(PROGRESS_KEY, JSON.stringify(progress));
+    return experimentBadgeLevel(id, storage);
+  } catch {
+    return experimentBadgeLevel(id, storage);
+  }
 }
 
 /**

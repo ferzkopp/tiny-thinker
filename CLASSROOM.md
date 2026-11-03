@@ -12,7 +12,7 @@ Treat AI like any convenience tool: useful when directed with clear goals and co
 
 1. Prepare the site with `python download_models.py --profile classroom`, then `python download_models.py --profile classroom --check`. See [README.md](README.md) for deployment details.
 2. Test the actual school browser, network and representative devices. Use HTTPS on a remote server; localhost works for preview. Confirm jsDelivr is accessible. Other model tiers may also need Hugging Face access.
-3. All four model tiers are prepared on the site. On weaker devices, choose tiny or small in Change setup; medium and quality give better answers (and Spanish) but need more memory and a longer first download per device.
+3. All four model tiers are prepared on the site. On weaker devices, choose tiny or small on the setup screen; medium and quality give better answers (and Spanish) but need more memory and a longer first download per device.
 4. Open and warm up the chosen model on each device before students arrive. Disk copies on the server do not mean every browser already has a cached copy. Coordinate downloads to avoid overloading school Wi-Fi.
 5. Test sending, stopping, applying a preset, settings help and reset. Optional COOP/COEP headers enable multithreaded CPU inference; see the device check for availability.
 6. Follow the school's safeguarding, age-appropriateness and AI-use policies. These open models are not certified child-safe or reliably moderated. Plan teacher-led or paired use for younger students and a non-AI alternative if needed.
@@ -33,7 +33,7 @@ For younger students, run a single comparison together instead of independent ex
 
 ## Activity Menu
 
-Each activity includes its own student-facing steps, starter questions, entry task and stretch challenge. Presets set system prompt, temperature and reply-token budget; students can inspect and edit all three. The **?** beside each setting opens a simple explanation with an example. Activities are numbered in the Mode menu, so you can say "start mode 4".
+Each activity includes its own student-facing steps, starter questions, entry task and stretch challenge. Presets set system prompt, temperature and reply-token budget; students can inspect and edit all three. The **?** beside each setting opens a simple explanation with an example. Activities are numbered in the experiment picker, so you can say "open experiment 4".
 
 | # | Activity | Starting Settings | Investigation |
 |---|---|---|---|
@@ -49,9 +49,22 @@ Each activity includes its own student-facing steps, starter questions, entry ta
 | 10 | Bug hunter | 0.2; 160 tokens | Solve a small grid, pattern or sorting puzzle by hand first, then trace the model's steps to catch where it slips. Fluent steps still need testing. |
 | 11 | Socratic coach | 0.2; 144 tokens | Ask for a hint instead of a shortcut, then test the coach with a wrong guess (`5/8`) and a right guess (`3/4 = 6/8`). Discuss AI sycophancy when a model praises a wrong answer. |
 | 12 | Make it your own | 0.6; 176 tokens | Compare a vague draft with a well-framed one, critique filler against a checklist, then rewrite in the student's own voice and share. |
-| 13 | Turtle artist | 0.2; 96 tokens | Predict turn angles on paper, ask for Logo turtle code (`FD`, `RT`, `REPEAT`), inspect the inline SVG drawing, and edit the code box with **Run code**. A single automatic retry repairs syntax mishaps; smaller models often need the student to fix the geometry. |
+| 13 | Turtle artist | 0.2; 192 tokens | Predict turn angles on paper, ask for Logo turtle code (`FD`, `RT`, `REPEAT`), inspect the inline SVG drawing, and edit the code box with **Run code**. A single automatic retry repairs syntax mishaps; smaller models often need the student to fix the geometry. |
 
-These are text and bounded Logo turtle activities. The sandbox interprets only its fixed drawing commands (`FD`, `BK`, `RT`, `LT`, `PU`, `PD`, `COLOR`, `WIDTH`, `HOME`, `CLEAR`, `REPEAT`); it never executes arbitrary JavaScript, generates raster images, trains models or browses the web.
+These are text and bounded Logo turtle activities. The sandbox uses a restricted Berkeley/UCBLogo-style dialect with standard pen commands, coordinates, arithmetic, variables, repeats and procedures. It never executes model-supplied JavaScript, accesses files or the network, generates raster images, trains models or browses the web.
+
+### Turtle Artist: Logo Dialect
+
+Logo has many dialects rather than a single official standard. This activity follows the widely documented Berkeley/UCBLogo conventions, using the established jslogo parser behind a restricted drawing adapter. It accepts both abbreviated and long movement commands, such as `FD`/`FORWARD` and `RT`/`RIGHT`. The model prompt requests executable Logo only, supplies short examples and budgets 192 tokens to reduce truncation. These instructions improve the contract, not the model's ability to reason about every drawing.
+
+- Start at `(0,0)`, heading 0 up; positive Y is up and heading 90 is right. Each reply and editor run starts fresh.
+- Use `SETPENCOLOR 1` for blue, `SETPENCOLOR 4` for red, `SETPENCOLOR "gold` for a named colour, or `SETPC [99 0 0]` for red in the Berkeley 0-99 RGB convention. `SETPENSIZE [3 3]` sets thickness. Older `COLOR blue` and `WIDTH 3` examples still work.
+- `REPEAT 7 [ FD 40 RT 360/7 ]` draws a seven-sided polygon. Nested repeats, `REPCOUNT`, arithmetic, `MAKE "size 40` and `:size` work. `TO SQUARE :SIZE REPEAT 4 [ FD :SIZE RT 90 ] END SQUARE 40` defines and calls a procedure; definitions do not carry into another reply.
+- `SETXY 40 60` moves to a position. With the pen down, `HOME` draws a line back to the origin; `PU HOME PD` avoids it. `CLEAN` erases without moving; `CS`/`CLEARSCREEN` erases and returns home without a connecting line. `ARC` draws around the stationary turtle; `HT` and `ST` hide/show its cursor.
+- Invalid or cut-off code is reported, not silently rewritten. One automatic repair receives the original task, rejected code and validation error. Students can still inspect and correct the final program themselves. Manual **Run code** never sends another model request.
+- This is a bounded subset, not a full Logo workspace. It excludes file/network access, input, fills and screen-mode commands. Limits include 0-360 repeats, 5,000 operations/segments, a one-second execution budget checked at dispatch, 12,000 characters, 32 nesting levels, 64 procedure-call levels and eight required procedure inputs. Coordinates stay within 5,000 steps and pen sizes within `(0,12]`. Optional procedure inputs are not supported.
+
+Sources consulted for the dialect: [Logo overview](https://en.wikipedia.org/wiki/Logo_(programming_language)), [turtle graphics overview](https://en.wikipedia.org/wiki/Turtle_graphics), the primary [Berkeley Logo manual](https://people.eecs.berkeley.edu/~bh/usermanual), and [jslogo's implementation](https://github.com/inexorabletash/jslogo). These are public syntax references; we cannot verify which implementations were included in a model's training data.
 
 ## Inclusion and Mixed Ages
 
@@ -67,11 +80,27 @@ For fairness activities, describe patterns in outputs, not the abilities of real
 
 ## Using Presets and Notes
 
-The page starts in Free chat. Choosing a Mode in the header immediately applies its settings, starts a new conversation and shows the steps. Blue-outlined step buttons fill the message box (students still press Send); green-outlined buttons change a setting and start a fresh run for a fair comparison. A mode link, such as `index.html?experiment=shakespeare`, can be shared without including student work in the URL.
+Students reach the activities in three steps shown at the top of every page: **Set up** (device check), **Choose an experiment** (a card per numbered activity) and **Chat and learn**. On a student's first visit, six short tips with arrows walk them through that path once. A cookie remembers that the tips were seen. While the model loads, students can read short explanations of loading time, megabytes, caching and working memory. In the chat, the yellow **Choose a new experiment** action returns to the experiment list. Opening an experiment applies its settings, starts a new conversation and shows the steps. Blue-outlined step buttons fill the message box (students still press Send); green-outlined buttons change a setting and start a fresh run for a fair comparison. An experiment link, such as `index.html?experiment=shakespeare`, skips the experiment list and can be shared without including student work in the URL.
 
 Fresh run empties the model's conversation context and repeats the last question in the composer without sending it. Settings, reflection notes and earlier run records remain available for the experiment export. This allows a cleaner comparison than asking the same question later in a long conversation. The model, engine and precision also affect results, so record them and avoid changing them during a single-variable comparison.
 
 The local text export contains the activity, model/backend description, current settings, each retained turn's actual settings, responses and reflection notes. Download notes before leaving the page or changing activities. Clear discards the conversation/run records but keeps reflections; applying a new preset or Done also discards reflections. No notes are automatically uploaded or graded. Use only a school-approved method if students submit downloaded work.
+
+## Experiment Badges
+
+Each experiment has its own cumulative progress. Its current badge appears immediately in the chat header after a qualifying reply and on its experiment card when the picker opens.
+
+| Level | Badge | Completed Replies in That Experiment |
+|---|---|---|
+| 1 | Explorer (one star) | 1 |
+| 2 | Experimenter (two stars) | 2-4 |
+| 3 | Investigator (three stars) | 5 or more |
+
+One student-sent question with a non-empty, completed model reply counts as one interaction. A reply that reaches the token limit still counts. Page visits, clicking starter questions, editing settings or turtle code, free chat, failed replies, stopped replies and empty replies do not count. An automatic turtle repair does not count as another interaction; if that repair is stopped or fails, the turn earns no progress. Replies discarded by a reset or experiment change do not count.
+
+Counts accumulate across Fresh run, Clear, Done, model changes and return visits in the same browser and site. Reopening an experiment alone adds nothing: students must complete another interaction to advance. Existing Explorer and Experimenter badges are preserved; previously stored Experimenter progress starts at two replies because the old system did not retain higher counts.
+
+Only experiment IDs and counts (capped at five) are saved in local storage, not questions, replies or notes. Progress does not follow a student to another browser or device. Clearing site data removes it; blocked browser storage can prevent badges from being saved. On shared devices, badges belong to that browser rather than an individual student, and Done does not remove them. They recognize participation, not correctness, mastery or a grade. Ask students to support their observations with comparisons and notes rather than chase reply counts.
 
 ## Boundaries for the Rule Challenge
 
@@ -81,9 +110,9 @@ Keep the challenge to the fictional word rule built into the activity. Students 
 
 Inference happens on-device; the app does not intentionally send conversation text to a model service. Static/CDN hosts still receive asset requests and may log IP addresses. Model libraries come from jsDelivr and unprepared model tiers fall back to Hugging Face. The site is not fully offline and browser caching is not a guarantee of offline startup.
 
-Settings and model/device choices persist in browser storage, while conversations and reflection notes live in tab memory. Supervise student use: the model may generate inaccurate, biased or inappropriate content even with a classroom-oriented prompt. Stop the response, clear it and discuss with the teacher if something uncomfortable appears.
+Settings and model/device choices persist in browser storage, and a single cookie records only how many first-run tips were seen; conversations and reflection notes live in tab memory. Supervise student use: the model may generate inaccurate, biased or inappropriate content even with a classroom-oriented prompt. Stop the response, clear it and discuss with the teacher if something uncomfortable appears.
 
-At the end, download required notes, press Done (top right) and close the tab. This clears current work and restores prompt/settings without deleting cached models or changing the selected model.
+At the end, download required notes and press Done (step 4). Confirm to stop any reply, clear current work, restore prompt/settings and return to Set up. Cancel keeps the chat intact. Cached model files and earned badges are not deleted. From chat, the other workflow exit is Choose a new experiment, which keeps the loaded model available.
 
 ## Troubleshooting
 

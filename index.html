@@ -4,7 +4,8 @@
   Source: https://github.com/ferzkopp/tiny-thinker
   Copyright (c) 2026 Andreas Schiffler. MIT License (see LICENSE).
   Developed with AI assistance (GPT 6.1 Sol, Claude 5.5).
-  This page: device check. It recommends an engine and model, then opens chat.html.
+  This page: step 1, the device check. It recommends an engine and model, then opens experiments.html
+  (or chat.html directly when the link names an experiment or comes from the chat).
 -->
 <html lang="en">
 <head>
@@ -46,16 +47,44 @@
 <body>
   <header class="top">
     <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker</h1>
-    <span class="badge">Learn AI by playing with it, right in your browser</span>
+    <span class="badge tagline">Learn AI by playing with it, right in your browser</span>
   </header>
 
-  <main class="page">
+  <nav class="journey" aria-label="Your path">
+    <ol>
+      <li aria-current="step"><span class="journey-num">1</span> Set up</li>
+      <li><span class="journey-num">2</span> Choose an experiment</li>
+      <li><span class="journey-num">3</span> Chat and learn</li>
+    </ol>
+  </nav>
+
+  <main class="page setup-page">
+    <section class="panel welcome">
+      <h2>Welcome!</h2>
+      <p>Tiny Thinker runs a small AI language model right inside this browser. Your questions are not sent to an AI server.
+        Getting started takes three steps: <strong>set up</strong> this device, <strong>choose an experiment</strong>,
+        then <strong>chat and learn</strong> by trying questions and comparing replies.</p>
+    </section>
+    <aside class="setup-sidebar">
+      <section class="panel setup-checks">
+        <h2>Why it matters?</h2>
+        <ul id="check-reasons" class="check-reasons"></ul>
+      </section>
+    </aside>
+    <aside id="override-help" class="setup-picker-sidebar hidden">
+      <section class="panel setup-checks">
+        <h2>What am I picking?</h2>
+        <p class="override-explanation">The <strong>engine</strong> is the program that runs the model. The <strong>model</strong> is the AI itself:
+          bigger models usually give better answers, but take longer to download and need more memory.</p>
+      </section>
+    </aside>
+    <div class="setup-content">
     <div id="boot-warning" class="notice error">
       If this message stays visible, the page scripts could not start. Open the page through a web server
       (http://localhost or https://), not as a local file, and make sure JavaScript is enabled.
     </div>
 
-    <section class="panel">
+    <section class="panel setup-results">
       <h2>Checking your device</h2>
       <ul id="checks" class="checks" aria-live="polite"></ul>
     </section>
@@ -63,10 +92,11 @@
     <section id="result" class="panel hidden">
       <h2>Recommended setup</h2>
       <p id="recommendation" class="recommendation"></p>
+      <p id="recommendation-explain" class="panel-intro"></p>
       <div id="countdown" class="countdown hidden">
-        <span id="countdown-text"></span>
-        <button id="go-now" class="primary" type="button">Start now</button>
+        <button id="go-now" class="primary" type="button">Next: choose an experiment</button>
         <button id="change" type="button">Change</button>
+        <span id="countdown-text"></span>
       </div>
     </section>
 
@@ -84,11 +114,12 @@
         <legend>Model</legend>
         <div id="model-options"></div>
       </fieldset>
-      <button class="primary" type="submit">Start chat</button>
+      <button id="override-submit" class="primary" type="submit">Next: choose an experiment</button>
     </form>
 
     <p><small>No accounts or inference server. Questions and replies are processed on your device. Models download from this site or Hugging Face; engine libraries load from jsDelivr. These asset requests use the network, and browser caches can be cleared or evicted.
       <a href="licenses.html" data-licenses>Model licenses</a></small></p>
+    </div>
   </main>
 </body>
 </html>

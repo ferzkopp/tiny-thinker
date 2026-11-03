@@ -1,8 +1,11 @@
 // Chat page: loads the chosen engine, streams replies, runs classroom modes and shows help popups.
-import { ENGINES, describeModel, resolveSource, loadConfig, saveConfig, configToQuery, tierInfo } from './models.js';
+import { ENGINES, describeModel, resolveSource, loadConfig, saveConfig, configToQuery, tierInfo, parameterCount } from './models.js';
 import { wireLicenseLinks } from './licenses.js';
-import { EXPERIMENTS, getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle } from './experiments.js';
+import { getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle, EXPERIMENT_BADGES, experimentBadgeLevel, recordExperimentInteraction } from './experiments.js';
 import { extractTurtleCode, runTurtle, renderTurtleSvg } from './turtle.js';
+import { renderLoadingLessons } from './loading.js';
+import { renderExperimentCards } from './picker.js';
+import { startTour } from './tour.js';
 import { el } from './dom.js';
 
 // Key name predates the Tiny Thinker name; changing it would discard settings saved in existing browsers.
@@ -15,11 +18,6 @@ const DEFAULT_SETTINGS = {
 
 // Help popup texts, keyed by the data-help attribute of the ? buttons. **Name** is shown in bold.
 const HELP = {
-  mode: {
-    title: 'Modes: pick an experiment',
-    text: '**Free chat** is a normal conversation. Every other mode is a short experiment with a number, so your teacher can say "start mode 4". A mode sets the system prompt, temperature and reply length for you and shows step-by-step instructions on the left.',
-    example: `Pick **${numberedTitle(getExperiment('shakespeare'))}**, click a question in step 1 and press **Send**. Switching mode starts a new conversation.`,
-  },
   steps: {
     title: 'Step buttons: do the experiment',
     text: '**Blue-outlined buttons** put a question into the message box. Nothing is sent until you press **Send**, so you can edit it first. **Green-outlined buttons** change a setting and start fresh, so you can compare answers fairly.',
@@ -57,7 +55,7 @@ const HELP = {
   },
   reset: {
     title: 'Done: a fresh start for the next person',
-    text: 'Press **Done** when you finish. It clears this conversation, the unsent message and your experiment notes, puts the system prompt, reply length and temperature back to their starting values and switches back to **Free chat**.',
+    text: 'Press **Done** when you finish. After confirmation, it stops any reply, clears this conversation, the unsent message and your experiment notes, resets the system prompt, reply length and temperature, and returns to **Set up**. Earned badges stay.',
     example: '**Download notes** first if you need them. The selected model stays loaded, so the next person can start right away.',
   },
   turtleSyntax: {
@@ -66,11 +64,14 @@ const HELP = {
     facts: [
       ['FD n / BK n', 'Move forward or backward **n** steps, drawing a line if the pen is down (e.g. **FD 60**, **BK 30**).'],
       ['RT deg / LT deg', 'Turn right (clockwise) or left (counter-clockwise) by **deg** degrees. A square corner is **90**; a full turn is **360**.'],
-      ['REPEAT n [ ... ]', 'Run the commands inside the brackets **n** times (up to 360). Example: **REPEAT 4 [ FD 60 RT 90 ]**.'],
+      ['REPEAT n [ ... ]', 'Run the commands inside balanced brackets **n** times (0-360). Nested repeats and arithmetic work: **REPEAT 7 [ FD 40 RT 360/7 ]**. **REPCOUNT** is the current repeat number.'],
       ['PU / PD', '**PU** (pen up) moves without drawing; **PD** (pen down) starts drawing again.'],
-      ['COLOR name', 'Set the pen colour: **blue**, **red**, **green**, **orange**, **purple**, **pink**, **teal**, **gold**, **black**, **gray** or a hex colour like **#e11d48**.'],
-      ['WIDTH n', 'Set the line thickness from **1** (thin) to **12** (thick).'],
-      ['HOME / CLEAR', '**HOME** returns the turtle to (0, 0) facing up. **CLEAR** erases the stage and resets the turtle.'],
+      ['SETPENCOLOR / SETPC', 'Use a Logo colour number (**1** blue, **4** red), a quoted name (**SETPENCOLOR "gold**) or an RGB list with components 0-99 (**SETPC [99 0 0]**). Legacy **COLOR blue** also works.'],
+      ['SETPENSIZE size', 'Set line thickness greater than 0 and at most 12: **SETPENSIZE [3 3]** or **SETPENSIZE 3**. Legacy **WIDTH 3** also works.'],
+      ['SETXY / SETPOS / SETH', 'Move to **SETXY 40 60** or **SETPOS [40 60]**; positive Y is up. **SETH 90** faces right. Movements draw when the pen is down.'],
+      ['HOME / CLEAN / CS', 'HOME draws back to (0, 0) and faces up; use **PU HOME PD** to avoid the connecting line. CLEAN erases without moving. CS (CLEARSCREEN) erases and returns home without drawing.'],
+      ['TO name :size ... END', 'Define a reusable procedure, then call it: **TO SQUARE :SIZE REPEAT 4 [ FD :SIZE RT 90 ] END SQUARE 40**. **MAKE "size 40** creates a variable read with **:size**.'],
+      ['ARC / HT / ST', 'ARC angle radius draws around the turtle without moving it. HT hides the cursor; ST shows it. Programs are bounded to 5,000 operations and one second; unsupported commands report an error.'],
     ],
     example: 'Try editing the code box to **COLOR purple REPEAT 12 [ FD 65 BK 65 RT 30 ]** and press **Run code** (or **Ctrl+Enter**).',
   },
@@ -93,6 +94,7 @@ const ui = {
   loadPanel: $('load-panel'),
   loadProgress: $('load-progress'),
   loadText: $('load-text'),
+  loadDone: $('load-done'),
   errorPanel: $('error-panel'),
   errorTitle: $('error-title'),
   errorText: $('error-text'),
@@ -121,6 +123,9 @@ let lastPrompt = '';        // Refilled by Fresh run.
 let engineDetail = '';      // Extra engine info from load(), e.g. thread count.
 let followNewest = true;    // Auto-scroll while streaming; off when the student scrolls up.
 let scrollQueued = false;   // A scroll is already scheduled for the next frame.
+let leaving = false;        // The student already confirmed leaving the page; skip the browser's own warning.
+let loaderTouched = false;  // The student interacted with the loading dialog, so it waits for them.
+let chatTour = null;        // First-run tips for this page, once the model is ready.
 
 // Step buttons that change settings, mapped to their change, so the active one can be highlighted.
 const actionChanges = new WeakMap();
@@ -131,8 +136,7 @@ function modelHelp() {
   const family = tier.familyInfo;
   const gpu = config.engine === 'webllm';
   const build = gpu ? tier.webllm[config.variant] : tier.gguf;
-  const [, amount, unit] = tier.label.match(/([\d.]+)([MB])$/) || [];
-  const params = amount ? `${amount} ${unit === 'B' ? 'billion' : 'million'}` : tier.label;
+  const params = parameterCount(config.tier).words;
   const context = ENGINES[config.engine].contextSize;
   const detail = engineDetail ? `, ${engineDetail}` : '';
   return {
@@ -233,11 +237,11 @@ function updateModeStatus() {
   }
 }
 
-/** Puts the current mode in the address bar and the Change setup link, so reloading and setup changes keep it. */
+/** Puts the setup and mode in the address bar and the navigation links, so reloading and moving between pages keep them. */
 function syncModeUrl() {
   const query = withExperiment(location.search, activeActivity?.id);
   window.history.replaceState(null, '', `chat.html${query ? `?${query}` : ''}`);
-  $('change-setup').href = `index.html?${withExperiment('manual=1', activeActivity?.id)}`;
+  $('journey-experiments').href = `experiments.html?${withExperiment(configToQuery(config), activeActivity?.id)}`;
 }
 
 /** True if a reset would lose something: messages, run records, a draft, a reply in progress or (optionally) notes. */
@@ -292,9 +296,11 @@ function runAction(action) {
     addMessage('system-note', `Changed ${describeChange(action.settings)}. Fresh start: press Send to compare.`);
   } else if (action.fresh) {
     freshRun(action.prompt);
+    chatTour?.complete(4);
   } else {
     ui.input.value = action.prompt;
     ui.input.focus();
+    chatTour?.complete(4);
   }
 }
 
@@ -313,12 +319,29 @@ function actionButton(action) {
   return button;
 }
 
+function updateExperimentBadge() {
+  const badge = $('guide-badge');
+  const level = experimentBadgeLevel(activeActivity?.id);
+  badge.classList.toggle('hidden', !level);
+  badge.classList.toggle('promoted', level >= 2);
+  badge.classList.toggle('investigator', level === 3);
+  const earned = EXPERIMENT_BADGES[level - 1];
+  badge.title = earned ? `${activeActivity.title}: ${earned.title}` : '';
+  if (!earned) {
+    badge.replaceChildren();
+    return;
+  }
+  badge.replaceChildren(el('span', {
+    className: 'badge-mark', textContent: '\u2605'.repeat(level), ariaHidden: 'true',
+  }), earned.label);
+}
+
 /** Shows the instructions panel for the current mode, or hides it in Free chat. */
 function renderGuide() {
   const mode = activeActivity;
   $('guide').classList.toggle('hidden', !mode);
   $('workspace').classList.toggle('with-guide', Boolean(mode));
-  $('mode-select').value = mode?.id || '';
+  updateExperimentBadge();
   document.title = mode ? `${numberedTitle(mode)} – Tiny Thinker` : 'Tiny Thinker';
   if (!mode) return;
   $('guide-title').textContent = numberedTitle(mode);
@@ -334,27 +357,6 @@ function renderGuide() {
   updateControls();
 }
 
-/**
- * Switches mode (from the Mode menu): asks before discarding work, then applies the mode's preset,
- * or the saved free-chat settings for Free chat.
- * @param {string} id Mode ID, or '' for Free chat.
- */
-function selectMode(id) {
-  const next = getExperiment(id);
-  if (next === activeActivity) return;
-  if (hasWork(true) && !confirm('Switch mode? The conversation, message draft and notes will be cleared.')) {
-    $('mode-select').value = activeActivity?.id || '';
-    return;
-  }
-  startOver();
-  activeActivity = next;
-  if (next) setSettings(next.settings);
-  else loadSettings();
-  renderGuide();
-  syncModeUrl();
-  addMessage('system-note', next ? `${next.title}: follow the steps on the left.` : 'Free chat: ask anything.');
-}
-
 /** Saves the student's notes, settings and run records as a text file on this device. */
 function downloadNotes() {
   if (generating) return;
@@ -368,30 +370,145 @@ function downloadNotes() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Fills the Mode menu, applies a mode from the URL and wires the mode-related buttons. */
+/** Applies the experiment from the URL and wires its controls. */
 function wireModes() {
-  $('mode-select').append(...EXPERIMENTS.map((item) => new Option(numberedTitle(item), item.id)));
   activeActivity = getExperiment(new URLSearchParams(location.search).get('experiment'));
   if (activeActivity) setSettings(activeActivity.settings);
   renderGuide();
   syncModeUrl();
-  $('mode-select').addEventListener('change', (event) => selectMode(event.target.value));
   $('restore-preset').addEventListener('click', () => setSettings(activeActivity.settings));
   $('download-notes').addEventListener('click', downloadNotes);
   $('fresh-run').addEventListener('click', () => freshRun());
-  $('restore-defaults').addEventListener('click', () => {
-    if (hasWork(true) && !confirm('Done? The conversation, message draft and notes will be cleared for the next person.')) return;
-    startOver();
-    activeActivity = null;
-    setSettings(DEFAULT_SETTINGS);
-    renderGuide();
-    syncModeUrl();
-  });
   window.addEventListener('beforeunload', (event) => {
-    if (hasWork(true)) {
+    if (!leaving && hasWork(true)) {
       event.preventDefault();
       event.returnValue = '';
     }
+  });
+  const leavePanel = $('leave-confirm');
+  let pendingAction = null;
+  let confirmationTrigger = null;
+  const hideConfirmation = (restoreFocus = false) => {
+    const trigger = confirmationTrigger;
+    pendingAction = null;
+    confirmationTrigger = null;
+    leavePanel.classList.add('hidden');
+    if (restoreFocus) trigger?.focus();
+  };
+  const showConfirmation = (trigger, title, text, label, action) => {
+    pendingAction = action;
+    confirmationTrigger = trigger;
+    $('leave-title').textContent = title;
+    $('leave-text').textContent = text;
+    $('leave-continue').textContent = label;
+    leavePanel.classList.remove('hidden');
+    leavePanel.focus();
+  };
+  $('leave-cancel').addEventListener('click', () => hideConfirmation(true));
+  leavePanel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      hideConfirmation(true);
+    }
+  });
+  $('leave-continue').addEventListener('click', () => {
+    const action = pendingAction;
+    hideConfirmation();
+    action?.();
+  });
+  const showPicker = (visible) => {
+    $('experiment-picker').classList.toggle('hidden', !visible);
+    $('workspace').classList.toggle('hidden', visible);
+    const steps = document.querySelectorAll('.journey li');
+    steps[1].toggleAttribute('aria-current', visible);
+    if (visible) steps[1].setAttribute('aria-current', 'step');
+    steps[2].toggleAttribute('aria-current', !visible);
+    if (!visible) steps[2].setAttribute('aria-current', 'step');
+    if (visible) {
+      renderExperimentCards($('experiment-list'), config, activeActivity);
+      $('free-chat').href = `chat.html?${configToQuery(config)}`;
+      document.title = 'Choose an experiment - Tiny Thinker';
+      $('pick-title').focus();
+    } else {
+      renderGuide();
+      ui.input.focus();
+    }
+  };
+  $('restore-defaults').addEventListener('click', () => {
+    const finish = () => {
+      leaving = true;
+      startOver();
+      activeActivity = null;
+      setSettings(DEFAULT_SETTINGS);
+      location.assign('index.html?manual=1');
+    };
+    if (hasWork(true)) {
+      showConfirmation($('restore-defaults'), generating ? 'Stop the reply and finish?' : 'Finish this session?',
+        'Any reply will stop, and the conversation, draft, notes and chat settings will be cleared for the next person. Download your notes first. You will return to Set up; earned badges will stay.',
+        generating ? 'Stop and finish' : 'Done', finish);
+    } else {
+      hideConfirmation();
+      finish();
+    }
+  });
+  $('experiment-picker').addEventListener('click', (event) => {
+    const link = event.target.closest('.experiment-card, #free-chat');
+    if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    startOver();
+    activeActivity = getExperiment(new URL(link.href).searchParams.get('experiment'));
+    if (activeActivity) setSettings(activeActivity.settings);
+    else loadSettings();
+    syncModeUrl();
+    showPicker(false);
+  });
+  ui.clear.addEventListener('click', () => {
+    const clear = () => {
+      resetConversation();
+      lastPrompt = '';
+      ui.input.focus();
+    };
+    if (hasWork(false)) {
+      showConfirmation(ui.clear, 'Clear this conversation?',
+        'The conversation and message draft will be cleared. Your notes and system prompt will stay.',
+        'Clear conversation', clear);
+    } else {
+      hideConfirmation();
+      clear();
+    }
+  });
+  for (const link of document.querySelectorAll('a[data-leave]')) {
+    link.addEventListener('click', (event) => {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      const openPicker = link.id === 'journey-experiments';
+      const leave = () => {
+        if (openPicker) {
+          startOver();
+          showPicker(true);
+        } else {
+          leaving = true;
+          runVersion += 1;
+          if (generating) engine?.interrupt();
+          location.assign(link.href);
+        }
+      };
+      if (hasWork(true)) {
+        event.preventDefault();
+        showConfirmation(link, 'Leave this experiment?',
+          'Your conversation, draft and notes will be cleared. Download your notes first if you need them.',
+          'Leave experiment', leave);
+        return;
+      }
+      if (openPicker) {
+        event.preventDefault();
+        hideConfirmation();
+        leave();
+      } else leaving = true;
+    });
+  }
+  window.addEventListener('pageshow', () => {
+    leaving = false;
+    hideConfirmation();
   });
 }
 
@@ -440,8 +557,8 @@ function addMessage(role, text = '') {
       meta.textContent = textValue;
       meta.classList.toggle('hidden', !textValue);
     },
-    mountTurtle(initialCode, onCodeEdit) {
-      renderTurtleWidget(sandbox, initialCode, onCodeEdit);
+    async mountTurtle(initialCode, onCodeEdit) {
+      await renderTurtleWidget(sandbox, initialCode, onCodeEdit);
       scrollToNewest(true);
     },
   };
@@ -453,14 +570,14 @@ function addMessage(role, text = '') {
  * @param {string} initialCode Extracted turtle commands from the model reply.
  * @param {(code: string) => void} [onCodeEdit] Updates the turn record when the student edits and runs code.
  */
-function renderTurtleWidget(container, initialCode, onCodeEdit) {
+async function renderTurtleWidget(container, initialCode, onCodeEdit) {
   const stage = el('div', { className: 'turtle-stage' });
   const status = el('div', { className: 'turtle-status', role: 'status' });
   const editor = el('textarea', {
     className: 'turtle-code',
     rows: 3,
-    maxLength: 1000,
-    value: initialCode || 'COLOR blue REPEAT 4 [ FD 60 RT 90 ]',
+    maxLength: 12000,
+    value: initialCode || '',
     ariaLabel: 'Turtle code',
     spellcheck: false,
   });
@@ -476,21 +593,24 @@ function renderTurtleWidget(container, initialCode, onCodeEdit) {
   syntaxHelpBtn.addEventListener('click', () => openHelp('turtleSyntax'));
   const helpHint = el('small', {
     className: 'turtle-hint',
-    textContent: 'Commands: FD n, BK n, RT deg, LT deg, PU, PD, COLOR name, WIDTH n, HOME, CLEAR, REPEAT n [ ... ]',
+    textContent: 'Logo: FD/BK, RT/LT, PU/PD, SETPENCOLOR, SETPENSIZE, SETXY, HOME, CLEAN, CS, REPEAT, TO ... END.',
   });
 
-  const execute = (codeText, fromUser = false) => {
-    const res = runTurtle(codeText);
+  let execution = 0;
+  const execute = async (codeText, fromUser = false) => {
+    const version = ++execution;
+    runBtn.disabled = true;
+    status.textContent = 'Running Logo...';
+    status.className = 'turtle-status';
+    const res = await runTurtle(codeText);
+    if (version !== execution) return;
+    runBtn.disabled = false;
     stage.replaceChildren(renderTurtleSvg(res));
     if (res.errors.length) {
       status.textContent = res.errors[0];
       status.className = 'turtle-status error';
     } else {
-      const gap = Math.hypot(res.turtle.x, res.turtle.y);
-      const turnHint = res.segments.length >= 3 && gap > 8
-        ? ` The shape stayed open — try a bigger turn angle (like RT 144 or RT 168.75) or add BK after FD!`
-        : ' Edit the numbers and press Run code!';
-      status.textContent = `Drew ${res.segments.length} line${res.segments.length === 1 ? '' : 's'} (${res.steps} step${res.steps === 1 ? '' : 's'}).${turnHint}`;
+      status.textContent = `Drew ${res.segments.length} line${res.segments.length === 1 ? '' : 's'} (${res.steps} Logo operations).`;
       status.className = 'turtle-status ok';
     }
     if (fromUser && onCodeEdit) onCodeEdit(codeText);
@@ -504,7 +624,6 @@ function renderTurtleWidget(container, initialCode, onCodeEdit) {
     }
   });
 
-  execute(initialCode, false);
   container.replaceChildren(
     stage,
     el('div', { className: 'turtle-controls' },
@@ -521,6 +640,7 @@ function renderTurtleWidget(container, initialCode, onCodeEdit) {
     ),
   );
   container.classList.remove('hidden');
+  await execute(initialCode, false);
 }
 
 /**
@@ -555,8 +675,56 @@ function setModelStatus(state) {
 
 /** Opens or closes the loading overlay, which blocks the page while the model loads. */
 function showLoader(on) {
-  if (on && !ui.loadPanel.open) ui.loadPanel.showModal();
+  if (on && !ui.loadPanel.open) {
+    ui.loadPanel.showModal();
+    ui.loadPanel.focus();
+  }
   if (!on && ui.loadPanel.open) ui.loadPanel.close();
+}
+
+/**
+ * Closes the loader once the model is ready. A student who was reading in it gets a
+ * "Start chatting" button instead, so the content does not vanish mid-sentence.
+ */
+async function finishLoader() {
+  if (!loaderTouched || !ui.loadPanel.open) {
+    showLoader(false);
+    return;
+  }
+  $('load-title').textContent = 'Your model is ready!';
+  ui.loadText.textContent = 'Take your time. Press Start chatting when you are ready.';
+  ui.loadDone.classList.remove('hidden');
+  ui.loadDone.focus();
+  await new Promise((resolve) => ui.loadDone.addEventListener('click', resolve, { once: true }));
+  showLoader(false);
+}
+
+/** Shows this page's first-run tips (pick a question, send, go back to the experiments) once. */
+function startChatTour() {
+  if (chatTour) return;
+  chatTour = startTour([
+    {
+      step: 4,
+      side: 'right',
+      target: () => (activeActivity ? document.querySelector('#guide-steps .prompt-action') : ui.input),
+      title: () => (activeActivity ? 'Pick a question' : 'Ask a question'),
+      text: () => (activeActivity
+        ? 'Follow the steps on the left. A blue button puts a ready-made question into the message box. Nothing is sent yet, so you can change it first.'
+        : 'Type a question for the model here. Ask about something you know well, so you can check the answer.'),
+    },
+    {
+      step: 5,
+      target: () => ui.send,
+      title: 'Send it',
+      text: 'Press Send (or Enter). The model writes its reply piece by piece, right here on your device.',
+    },
+    {
+      step: 6,
+      target: () => $('journey-experiments'),
+      title: 'Try another experiment',
+      text: 'Finished? Come back here to choose another experiment. "Set up" lets you try a bigger or smaller model.',
+    },
+  ]);
 }
 
 /**
@@ -609,7 +777,13 @@ async function startEngine() {
   setBadge();
   ui.loadProgress.value = 0;
   ui.loadText.textContent = 'Loading engine library…';
+  $('load-title').textContent = 'Waking up the model…';
+  ui.loadDone.classList.add('hidden');
+  loaderTouched = false;
+  const lessons = renderLoadingLessons({ phases: $('load-phases'), lessons: $('load-lessons') }, config, activeActivity);
+  $('load-lessons').scrollTop = 0;
   showLoader(true);
+  const loaderShownAt = performance.now();
 
   try {
     if (config.engine === 'webllm') {
@@ -622,14 +796,21 @@ async function startEngine() {
     const info = await engine.load(resolveSource(config), ({ progress, text }) => {
       ui.loadProgress.value = Math.min(1, Math.max(0, progress || 0));
       ui.loadText.textContent = text;
+      lessons.update(text, progress || 0);
     }, { contextSize: ENGINES[config.engine].contextSize });
 
     setBadge(info?.detail);
-    showLoader(false);
+    lessons.finish();
+    ui.loadProgress.value = 1;
+    ui.loadText.textContent = 'Model ready. Starting chat...';
+    const remaining = 4000 - (performance.now() - loaderShownAt);
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
     ready = true;
     setModelStatus('ready');
     updateControls();
+    await finishLoader();
     ui.input.focus();
+    startChatTour();
   } catch (err) {
     console.error(err);
     showLoader(false);
@@ -661,6 +842,7 @@ async function switchToCpu() {
   saveConfig(config);
   resetConversation();
   window.history.replaceState(null, '', `chat.html?${withExperiment(configToQuery(config), activeActivity?.id)}`);
+  syncModeUrl();
   addMessage('system-note', 'Switched to the CPU engine. Previous conversation context was cleared.');
   await startEngine();
 }
@@ -672,6 +854,7 @@ async function send() {
 
   ui.input.value = '';
   hideError();
+  chatTour?.hide();
   // Screen readers would otherwise announce every streamed fragment; they read the finished turn instead.
   ui.log.setAttribute('aria-busy', 'true');
   history.push({ role: 'user', content: text });
@@ -681,6 +864,7 @@ async function send() {
 
   const settings = currentSettings();
   const version = runVersion;
+  const experimentId = activeActivity?.id;
   const turn = { prompt: text, settings, reply: '', status: 'generating' };
   turns.push(turn);
   lastPrompt = text;
@@ -713,16 +897,18 @@ async function send() {
     // In turtle mode, check the generated commands and run a single automatic repair retry if invalid or empty.
     if (activeActivity?.sandbox === 'turtle' && result.finishReason !== 'abort') {
       let turtleCode = extractTurtleCode(result.text);
-      let turtleRun = runTurtle(turtleCode);
+      let turtleRun = await runTurtle(turtleCode);
+      if (version !== runVersion) return;
       if (turtleRun.errors.length || !turtleRun.segments.length) {
         const issue = turtleRun.errors[0] || 'No drawable turtle lines were produced.';
         turn.firstAttempt = { reply: result.text || '', error: issue };
         reply.setMeta(`Fixing turtle code (retry 1/1): ${issue}`);
         reply.setThinking(true);
-        const repairPrompt = `${text}\n(${issue} Output ONLY one line of Logo turtle commands, for example: COLOR blue REPEAT 4 [ FD 60 RT 90 ])`;
+        const repairSystem = getExperiment('turtle').settings.systemPrompt;
+        const repairPrompt = `Repair this Logo program for the original task.\nTask: ${text}\nRejected program:\n${turtleCode || result.text || '(empty)'}\nValidation error: ${issue}\nReturn the complete corrected Logo program only. Preserve the requested shape and colour.`;
         const repairMessages = [
-          { role: 'system', content: settings.systemPrompt },
-          { role: 'user', content: tierInfo(config.tier).familyInfo.weakSystemPrompt ? `${settings.systemPrompt}\n\n${repairPrompt}` : repairPrompt },
+          { role: 'system', content: repairSystem },
+          { role: 'user', content: tierInfo(config.tier).familyInfo.weakSystemPrompt ? `${repairSystem}\n\n${repairPrompt}` : repairPrompt },
         ];
         let retriedText = '';
         const retryRes = await engine.chat(repairMessages, settings, (delta) => {
@@ -733,23 +919,31 @@ async function send() {
           reply.append(delta);
         });
         if (version !== runVersion) return;
+        if (retryRes.finishReason === 'abort') turn.status = 'abort';
         if (retryRes.text?.trim()) {
           result.text = retryRes.text;
           turn.reply = retryRes.text;
           turn.retried = true;
           turtleCode = extractTurtleCode(retryRes.text);
-          turtleRun = runTurtle(turtleCode);
+          turtleRun = await runTurtle(turtleCode);
+          if (version !== runVersion) return;
           notes.push(turtleRun.errors.length === 0 && turtleRun.segments.length > 0 ? 'auto-fixed on retry 1/1' : 'retry 1/1 still needs an edit');
         }
       }
-      reply.mountTurtle(turtleCode || result.text, (editedCode) => {
+      reply.setText(turtleCode);
+      await reply.mountTurtle(turtleCode, (editedCode) => {
         turn.studentEditedCode = editedCode;
       });
+      if (version !== runVersion) return;
     }
 
     reply.setThinking(false);
     if (result.text) {
       history.push({ role: 'assistant', content: result.text });
+      if (turn.status !== 'abort' && result.text.trim()) {
+        recordExperimentInteraction(experimentId);
+        updateExperimentBadge();
+      }
     } else {
       history.pop();
       notes.push('no reply');
@@ -768,6 +962,7 @@ async function send() {
     ui.log.removeAttribute('aria-busy');
     updateControls();
     if (version === runVersion) ui.input.focus();
+    chatTour?.complete(5);
   }
 }
 
@@ -807,15 +1002,17 @@ function wireEvents() {
     }
   });
   ui.stop.addEventListener('click', () => engine?.interrupt());
-  ui.clear.addEventListener('click', () => {
-    if (hasWork(false) && !confirm('Clear this conversation? Your notes will stay.')) return;
-    resetConversation();
-    lastPrompt = '';
-  });
   ui.fallbackBtn.addEventListener('click', switchToCpu);
   ui.retryBtn.addEventListener('click', startEngine);
   // The loader blocks the page until the model is ready; Escape must not dismiss it.
   ui.loadPanel.addEventListener('cancel', (event) => event.preventDefault());
+  for (const type of ['pointermove', 'pointerdown', 'wheel', 'touchstart']) {
+    ui.loadPanel.addEventListener(type, () => { loaderTouched = true; }, { passive: true });
+  }
+  ui.loadPanel.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') loaderTouched = true;
+  });
+  ui.input.addEventListener('input', () => chatTour?.complete(4));
   for (const input of [ui.systemPrompt, ui.maxTokens, ui.temperature]) {
     input.addEventListener('input', onSettingsChanged);
   }

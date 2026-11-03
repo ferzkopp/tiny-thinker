@@ -4,7 +4,7 @@
   Source: https://github.com/ferzkopp/tiny-thinker
   Copyright (c) 2026 Andreas Schiffler. MIT License (see LICENSE).
   Developed with AI assistance (GPT 6.1 Sol, Claude 5.5).
-  This page: the chat, classroom modes and settings. Without a saved setup it redirects to index.html.
+  This page: step 3, the chat, classroom modes and settings. Without a saved setup it redirects to index.html.
 -->
 <html lang="en">
 <head>
@@ -26,25 +26,49 @@
   <a class="skip-link" href="#log">Skip to the chat</a>
   <header class="top">
     <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker</h1>
-    <div class="mode-picker">
-      <label for="mode-select">Mode</label>
-      <select id="mode-select"><option value="">Free chat</option></select>
-      <button class="help-btn" type="button" data-help="mode" aria-label="Explain modes" title="Explain modes" aria-haspopup="dialog">?</button>
-    </div>
     <div class="model-info">
       <span id="model-status" class="model-status loading" role="status">Loading</span>
       <span id="setup-badge" class="badge">Loading…</span>
       <button class="help-btn" type="button" data-help="model" aria-label="About this model" title="About this model" aria-haspopup="dialog">?</button>
     </div>
+    <span id="guide-badge" class="experiment-badge hidden" role="status" aria-live="polite" aria-atomic="true"></span>
     <nav class="top-links">
-      <a id="change-setup" href="index.html?manual=1">Change setup</a>
       <a href="licenses.html" data-licenses>Licenses</a>
     </nav>
-    <div class="done-group">
-      <button id="restore-defaults" class="done-btn" type="button">Done</button>
-      <button class="help-btn" type="button" data-help="reset" aria-label="Explain Done" title="Explain Done" aria-haspopup="dialog">?</button>
-    </div>
   </header>
+
+  <nav class="journey" aria-label="Your path">
+    <ol>
+      <li class="done"><span class="journey-num">1</span> Set up</li>
+      <li class="done"><a id="journey-experiments" class="choose-experiment" href="experiments.html" data-leave><span class="journey-num">2</span> Choose a new experiment</a></li>
+      <li aria-current="step"><span class="journey-num">3</span> Chat and learn</li>
+      <li class="done-group">
+        <button id="restore-defaults" class="done-btn" type="button"><span class="journey-num">4</span> Done</button>
+        <button class="help-btn" type="button" data-help="reset" aria-label="Explain Done" title="Explain Done" aria-haspopup="dialog">?</button>
+      </li>
+    </ol>
+  </nav>
+
+  <section id="leave-confirm" class="leave-confirm hidden" role="region" aria-labelledby="leave-title" aria-describedby="leave-text" tabindex="-1">
+    <h2 id="leave-title">Leave this experiment?</h2>
+    <p id="leave-text">Your conversation, draft and notes will be cleared. Download your notes first if you need them.</p>
+    <div class="leave-actions">
+      <button id="leave-cancel" type="button">Keep chatting</button>
+      <button id="leave-continue" type="button">Leave experiment</button>
+    </div>
+  </section>
+
+  <main id="experiment-picker" class="page page-wide chat-picker hidden" aria-labelledby="pick-title">
+    <div class="pick-heading">
+      <h2 id="pick-title" class="pick-title" tabindex="-1">Choose an experiment</h2>
+      <p class="pick-intro">Each experiment has step-by-step instructions, ready-made questions and its own settings. To switch later, use <strong>Choose a new experiment</strong> in the chat.</p>
+    </div>
+    <ul id="experiment-list" class="experiment-grid"></ul>
+    <section class="panel free-chat-panel" aria-labelledby="free-title">
+      <h2 id="free-title">Just want to talk?</h2>
+      <a id="free-chat" href="chat.html">Open free chat</a>
+    </section>
+  </main>
 
   <main id="workspace" class="workspace">
     <aside id="guide" class="zone zone-guide hidden" aria-labelledby="guide-title">
@@ -123,12 +147,21 @@
     </details>
   </main>
 
-  <dialog id="load-panel" class="load-overlay" aria-labelledby="load-title" aria-describedby="load-text">
-    <img class="load-icon" src="icon.svg" alt="" width="64" height="64">
-    <h2 id="load-title">Waking up the model…</h2>
-    <progress id="load-progress" max="1" value="0" aria-labelledby="load-title"></progress>
-    <div id="load-text">Preparing…</div>
-    <small>The first visit downloads the model. Later visits are usually faster.</small>
+  <dialog id="load-panel" class="load-overlay" aria-labelledby="load-title" aria-describedby="load-text" autofocus>
+    <div class="load-head">
+      <img class="load-icon" src="icon.svg" alt="" width="56" height="56">
+      <div class="load-status">
+        <h2 id="load-title">Waking up the model…</h2>
+        <progress id="load-progress" max="1" value="0" aria-labelledby="load-title"></progress>
+        <div id="load-text">Preparing…</div>
+      </div>
+    </div>
+    <ol id="load-phases" class="load-phases" aria-label="Loading steps"></ol>
+    <div id="load-lessons" class="load-body" tabindex="0" role="region" aria-label="Experiment and model information"></div>
+    <div class="load-foot">
+      <small>The first visit downloads the model. Later visits are usually faster.</small>
+      <button id="load-done" class="primary hidden" type="button">Start chatting</button>
+    </div>
   </dialog>
 
   <dialog id="setting-help-dialog" class="overlay" aria-labelledby="setting-help-title" aria-describedby="setting-help-text setting-help-example">

@@ -44,6 +44,18 @@ export function tierInfo(tier) {
 }
 
 /**
+ * Spells out a tier's parameter count from its label, e.g. "SmolLM2 135M" -> "135 million".
+ * @param {string} tier One of TIERS.
+ * @returns {{words: string, count: number}} count is 0 if the label has no size.
+ */
+export function parameterCount(tier) {
+  const label = CATALOG.tiers[tier].label;
+  const [, amount, unit] = label.match(/([\d.]+)([MB])$/) || [];
+  if (!amount) return { words: label, count: 0 };
+  return { words: `${amount} ${unit === 'B' ? 'billion' : 'million'}`, count: Number(amount) * (unit === 'B' ? 1e9 : 1e6) };
+}
+
+/**
  * Picks the WebLLM build precision: half precision when the GPU supports shader-f16.
  * @param {object} caps Result of detectCapabilities().
  * @returns {'f16'|'f32'}
