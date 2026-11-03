@@ -1,8 +1,33 @@
 // Unit tests for the mode catalog and its helpers (Node's built-in test runner, no browser needed).
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, existsSync } from 'node:fs';
 import { EXPERIMENTS, getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, experimentBadgeLevel, recordExperimentInteraction, resetExperimentProgress } from '../experiments.js';
 import { extractTurtleCode, parseTurtle, runTurtle } from '../turtle.js';
+
+test('release labels and the entire local module graph use the same cache version', () => {
+  const version = '1.1';
+  const visited = new Set();
+  function checkModule(moduleUrl) {
+    assert.equal(moduleUrl.search, `?v=${version}`, moduleUrl.href);
+    assert.ok(existsSync(moduleUrl), moduleUrl.href);
+    if (visited.has(moduleUrl.href)) return;
+    visited.add(moduleUrl.href);
+    const source = readFileSync(moduleUrl, 'utf8');
+    for (const match of source.matchAll(/['"](\.{1,2}\/[^'"]+\.js(?:\?[^'"]*)?)['"]/g)) {
+      checkModule(new URL(match[1], moduleUrl));
+    }
+  }
+  for (const page of ['index.html', 'experiments.html', 'chat.html', 'licenses.html']) {
+    const pageUrl = new URL(`../${page}`, import.meta.url);
+    const html = readFileSync(pageUrl, 'utf8');
+    assert.ok(html.includes(`<small class="app-version">v${version}</small>`), page);
+    assert.ok(html.includes(`href="styles.css?v=${version}"`), page);
+    const script = html.match(/<script type="module" src="([^"]+)"/);
+    assert.ok(script, page);
+    checkModule(new URL(script[1], pageUrl));
+  }
+});
 
 function progressStorage(value = null) {
   return {
@@ -169,9 +194,10 @@ test('preset customization compares all three effective settings', () => {
 
 test('local notes include the actual per-turn settings and student reflection', () => {
   const notes = formatNotes({ activity: EXPERIMENTS[0], model: 'CPU tiny', settings: EXPERIMENTS[0].settings,
-    turns: [{ prompt: '<script>not html</script>', settings: { temperature: 1 }, reply: 'Hello' }], reflection: 'My prediction' });
+    turns: [{ prompt: '<script>not html</script>', settings: { temperature: 1 }, reply: 'Hello', studentEditedCode: 'FD 50 RT 90' }], reflection: 'My prediction' });
   assert.ok(notes.includes('Mode: 1. Shakespeare remix'));
   assert.ok(notes.includes('"temperature": 1'));
+  assert.ok(notes.includes('"studentEditedCode": "FD 50 RT 90"'));
   assert.ok(notes.includes('My prediction'));
   assert.ok(notes.includes('<script>not html</script>'));
 });
@@ -182,6 +208,9 @@ test('turtle code extractor removes fences without silently changing a program',
 
   const inline = 'Assistant: COLOR red REPEAT 3 [ FD 70 RT 120 ]';
   assert.equal(extractTurtleCode(inline), 'COLOR red REPEAT 3 [ FD 70 RT 120 ]');
+
+  const echoedPrompt = 'User: Draw a blue square with side 60.\nAssistant: CS PD SETPENCOLOR 1 REPEAT 4 [ FD 60 RT 90 ] User: Draw a star.';
+  assert.equal(extractTurtleCode(echoedPrompt), 'CS PD SETPENCOLOR 1 REPEAT 4 [ FD 60 RT 90 ]');
 
   const cutOff = 'FD 60 RT 90\nFD 60 RT';
   assert.equal(extractTurtleCode(cutOff), cutOff);
@@ -250,10 +279,12 @@ test('turtle bounds execution and rejects unsupported host access without silent
   ]) {
     assert.ok((await runTurtle(program)).errors.length, program);
   }
+  const deepCall = await runTurtle('TO DEEP :N IF :N > 0 [ DEEP :N - 1 ] END DEEP 70');
+  assert.match(deepCall.errors[0] || '', /64 levels/);
   assert.deepEqual((await runTurtle('REPEAT 0 [ FD 10 ]')).errors, []);
 });
 
-test('turtle preset teaches executable standard Logo within the prompt budget', () => {
+test('turtle preset teaches executable standard Logo within the prompt budget', async () => {
   const settings = getExperiment('turtle').settings;
   assert.ok(settings.systemPrompt.length < 1000);
   assert.match(settings.systemPrompt, /UCBLogo/);
@@ -261,6 +292,13 @@ test('turtle preset teaches executable standard Logo within the prompt budget', 
   assert.match(settings.systemPrompt, /SETPENSIZE \[2 2\]/);
   assert.match(settings.systemPrompt, /No prose, Markdown, Python or JavaScript/);
   assert.equal(settings.maxTokens, 192);
+  const examples = [...settings.systemPrompt.matchAll(/^Assistant:\s*(.+)$/gm)].map((match) => match[1]);
+  assert.equal(examples.length, 4);
+  for (const example of examples) {
+    const res = await runTurtle(example);
+    assert.deepEqual(res.errors, [], example);
+    assert.ok(res.segments.length >= 3, example);
+  }
 });
 
 test('turtle interpreter runs REPEAT loops, pen state, colors, and reports syntax errors', async () => {
@@ -274,6 +312,7 @@ test('turtle interpreter runs REPEAT loops, pen state, colors, and reports synta
   assert.equal(penUp.errors.length, 0);
   assert.equal(penUp.segments.length, 1);
 
+  assert.deepEqual(parseTurtle('(COLOR blue) (WIDTH 2)').errors, []);
   const bad = parseTurtle('DRAW 50\nREPEAT 4 [ FD 20');
   assert.ok(bad.errors.some((error) => error.includes("Expected ']'")));
   const unknown = await runTurtle('DRAW 50');

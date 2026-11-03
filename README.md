@@ -15,9 +15,9 @@ A static HTML/JavaScript playground with no build step or application backend. A
 
 ## In action
 
-![Turtle artist conversation showing gold and blue five-point stars, editable Logo code, classroom instructions and a follow-up question ready to send.](docs/images/turtle-artist.png)
+![Horizontal three-panel overview of Tiny Thinker's new design: 1. Intro (device check and model recommendation), 2. Experiments (all 13 classroom activities and free chat), and 3. Chat (Turtle artist conversation with a gold five-point star, editable Logo code, instructions and settings).](docs/images/turtle-artist.png)
 
-**13. Turtle artist:** ask for a drawing, refine it in conversation, then experiment with the code yourself. This real interaction uses Qwen2.5 1.5B running in the browser through the CPU engine.
+**Three-step workflow (`Set up` -> `Choose an experiment` -> `Chat and learn`):** check the device and pick a model, choose one of the thirteen classroom experiments, then explore in the chat — shown here with **13. Turtle artist** running Qwen2.5 1.5B in the browser through the CPU engine.
 
 ## After cloning
 
@@ -266,6 +266,8 @@ Requirements:
 
 The repository includes ready-made config files for IIS and Apache that set all of the above: isolation headers, MIME types (including `.wasm` and `.gguf`) and a 30-day browser cache for model files. They apply to the folder they are in, so the site also works in a subdirectory.
 
+The header displays the current release version. Local JavaScript entry points, imports and the GPU worker use a matching version query parameter, as does the stylesheet, so returning browsers request new asset URLs. For a new release, update that token throughout the HTML, JavaScript and browser test, update all four header labels, and update the release assertion in `tests/experiments.test.js`. Deploy the changed files together. The IIS and Apache configs require revalidation of app assets and HTML without disabling model caching. Previously cached HTML can still need a reload or cache expiry before these changes take effect; an already-open tab is not updated automatically.
+
 ### IIS: [web.config](web.config)
 
 Upload it with the site; no changes needed. It removes and re-adds each MIME type, so it does not clash with types IIS already defines. If the site lives in a subfolder of an existing IIS application, it is merged with the parent configuration.
@@ -282,13 +284,14 @@ nginx does not read config from the site folder. Add this to the server configur
 location /tiny-thinker/ {
     add_header Cross-Origin-Opener-Policy "same-origin" always;
     add_header Cross-Origin-Embedder-Policy "require-corp" always;
+    add_header Cache-Control "no-cache" always;
     # A types block replaces nginx's default list here, so it must name every file type the site uses.
     types { text/html html; text/css css; text/javascript js mjs; application/json json; application/wasm wasm; application/octet-stream gguf bin; image/svg+xml svg; text/plain txt; text/markdown md; }
 }
 location ~* ^/tiny-thinker/models/.*\.(gguf|bin|wasm)$ {
     add_header Cross-Origin-Opener-Policy "same-origin" always;
     add_header Cross-Origin-Embedder-Policy "require-corp" always;
-    add_header Cache-Control "public, max-age=2592000";
+    add_header Cache-Control "public, max-age=2592000" always;
 }
 ```
 

@@ -36,16 +36,14 @@ const COACH_PROMPT = [
 ].join('\n');
 const TURTLE_PROMPT = [
   'You write Logo programs. Output Logo code only. No prose, Markdown, Python or JavaScript.',
-  'Use UCBLogo: FD n, BK n, RT degrees, LT degrees, PU, PD, CS, HOME, CLEAN, REPEAT n [ commands ].',
-  'Pen: SETPENCOLOR 1 is blue, 4 red, 2 green, 13 purple; SETPENCOLOR "gold; SETPENSIZE [2 2].',
-  'Start CS PD. Balance brackets. Distances 20-100; whole repeat counts 1-360. Polygon turn = 360/sides.',
-  'Position: SETXY x y, SETPOS [x y], SETH degrees. Heading 0 is up, 90 right; positive y is up.',
+  'Use UCBLogo: FD n, BK n, RT degrees, LT degrees, PU, PD, CS, HOME, CLEAN, SETXY x y, SETPOS [x y], SETH degrees, REPEAT n [ commands ].',
+  'Pen: SETPENCOLOR 1 is blue, 4 red, 2 green, 13 purple; SETPENCOLOR "gold; SETPENSIZE [2 2]. Start CS PD. Balance brackets.',
   'User: Draw a blue square with side 60.',
   'Assistant: CS PD SETPENCOLOR 1 REPEAT 4 [ FD 60 RT 90 ]',
-  'User: Draw a gold 5-pointed star.',
+  'User: Draw a gold 5-pointed star with side 80 and turn 144.',
   'Assistant: CS PD SETPENCOLOR "gold REPEAT 5 [ FD 80 RT 144 ]',
-  'User: Draw a green pinwheel with 8 rays.',
-  'Assistant: CS PD SETPENCOLOR 2 REPEAT 8 [ FD 70 BK 70 RT 45 ]',
+  'User: Draw a green 6-spoke pinwheel using REPEAT 6 [ FD 60 BK 60 RT 60 ].',
+  'Assistant: CS PD SETPENCOLOR 2 REPEAT 6 [ FD 60 BK 60 RT 60 ]',
   'User: Draw a red triangle.',
   'Assistant: CS PD SETPENCOLOR 4 REPEAT 3 [ FD 60 RT 120 ]',
 ].join('\n');

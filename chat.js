@@ -1,12 +1,12 @@
 // Chat page: loads the chosen engine, streams replies, runs classroom modes and shows help popups.
-import { ENGINES, describeModel, resolveSource, loadConfig, saveConfig, configToQuery, tierInfo, parameterCount } from './models.js';
-import { wireLicenseLinks } from './licenses.js';
-import { getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle, EXPERIMENT_BADGES, experimentBadgeLevel, recordExperimentInteraction } from './experiments.js';
-import { extractTurtleCode, runTurtle, renderTurtleSvg } from './turtle.js';
-import { renderLoadingLessons } from './loading.js';
-import { renderExperimentCards } from './picker.js';
-import { startTour } from './tour.js';
-import { el } from './dom.js';
+import { ENGINES, describeModel, resolveSource, loadConfig, saveConfig, configToQuery, tierInfo, parameterCount } from './models.js?v=1.1';
+import { wireLicenseLinks } from './licenses.js?v=1.1';
+import { getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle, EXPERIMENT_BADGES, experimentBadgeLevel, recordExperimentInteraction } from './experiments.js?v=1.1';
+import { extractTurtleCode, runTurtle, renderTurtleSvg } from './turtle.js?v=1.1';
+import { renderLoadingLessons } from './loading.js?v=1.1';
+import { renderExperimentCards } from './picker.js?v=1.1';
+import { startTour } from './tour.js?v=1.1';
+import { el } from './dom.js?v=1.1';
 
 // Key name predates the Tiny Thinker name; changing it would discard settings saved in existing browsers.
 const SETTINGS_KEY = 'browserai.settings';
@@ -62,18 +62,18 @@ const HELP = {
     title: 'Turtle syntax: Logo drawing commands',
     text: 'The turtle starts in the centre at **(0, 0)** facing **up** (North) with its pen down. Commands are not case-sensitive, and you can put several on one line or on separate lines.',
     facts: [
-      ['FD n / BK n', 'Move forward or backward **n** steps, drawing a line if the pen is down (e.g. **FD 60**, **BK 30**).'],
-      ['RT deg / LT deg', 'Turn right (clockwise) or left (counter-clockwise) by **deg** degrees. A square corner is **90**; a full turn is **360**.'],
+      ['FD n / BK n', 'Move forward or backward **n** steps, drawing a line if the pen is down (**FORWARD** / **BACK** also work, e.g. **FD 60**, **BK 30**).'],
+      ['RT deg / LT deg', 'Turn right (clockwise) or left (counter-clockwise) by **deg** degrees (**RIGHT** / **LEFT**). A square corner is **90**; a full turn is **360**.'],
       ['REPEAT n [ ... ]', 'Run the commands inside balanced brackets **n** times (0-360). Nested repeats and arithmetic work: **REPEAT 7 [ FD 40 RT 360/7 ]**. **REPCOUNT** is the current repeat number.'],
       ['PU / PD', '**PU** (pen up) moves without drawing; **PD** (pen down) starts drawing again.'],
-      ['SETPENCOLOR / SETPC', 'Use a Logo colour number (**1** blue, **4** red), a quoted name (**SETPENCOLOR "gold**) or an RGB list with components 0-99 (**SETPC [99 0 0]**). Legacy **COLOR blue** also works.'],
-      ['SETPENSIZE size', 'Set line thickness greater than 0 and at most 12: **SETPENSIZE [3 3]** or **SETPENSIZE 3**. Legacy **WIDTH 3** also works.'],
-      ['SETXY / SETPOS / SETH', 'Move to **SETXY 40 60** or **SETPOS [40 60]**; positive Y is up. **SETH 90** faces right. Movements draw when the pen is down.'],
+      ['SETPENCOLOR / SETPC', 'Use a Logo colour number (**0** black, **1** blue, **2** green, **4** red, **13** purple, **14** orange), a quoted name (**SETPENCOLOR "gold**) or an RGB list with components 0-99 (**SETPC [99 0 0]**). **SETBG** sets the background; legacy **COLOR blue** also works.'],
+      ['SETPENSIZE size', 'Set line thickness greater than 0 and at most 12: **SETPENSIZE [3 3]** or **SETPENSIZE 3** (**SETWIDTH** / **SETPW** or legacy **WIDTH 3** also work).'],
+      ['SETXY / SETPOS / SETH', 'Move to **SETXY 40 60**, **SETPOS [40 60]**, **SETX 40** or **SETY 60**; positive Y is up. **SETH 90** (**SETHEADING**) faces right. Movements draw when the pen is down.'],
       ['HOME / CLEAN / CS', 'HOME draws back to (0, 0) and faces up; use **PU HOME PD** to avoid the connecting line. CLEAN erases without moving. CS (CLEARSCREEN) erases and returns home without drawing.'],
-      ['TO name :size ... END', 'Define a reusable procedure, then call it: **TO SQUARE :SIZE REPEAT 4 [ FD :SIZE RT 90 ] END SQUARE 40**. **MAKE "size 40** creates a variable read with **:size**.'],
+      ['TO name :size ... END', 'Define a reusable procedure (up to 8 inputs), then call it: **TO SQUARE :SIZE REPEAT 4 [ FD :SIZE RT 90 ] END SQUARE 40**. **MAKE "size 40** creates a variable read with **:size**; **IF**, **IFELSE**, **STOP** and **OUTPUT** are supported.'],
       ['ARC / HT / ST', 'ARC angle radius draws around the turtle without moving it. HT hides the cursor; ST shows it. Programs are bounded to 5,000 operations and one second; unsupported commands report an error.'],
     ],
-    example: 'Try editing the code box to **COLOR purple REPEAT 12 [ FD 65 BK 65 RT 30 ]** and press **Run code** (or **Ctrl+Enter**).',
+    example: 'Try editing the code box to **CS PD SETPENCOLOR 13 REPEAT 12 [ FD 65 BK 65 RT 30 ]** and press **Run code** (or **Ctrl+Enter**).',
   },
 };
 
@@ -593,7 +593,7 @@ async function renderTurtleWidget(container, initialCode, onCodeEdit) {
   syntaxHelpBtn.addEventListener('click', () => openHelp('turtleSyntax'));
   const helpHint = el('small', {
     className: 'turtle-hint',
-    textContent: 'Logo: FD/BK, RT/LT, PU/PD, SETPENCOLOR, SETPENSIZE, SETXY, HOME, CLEAN, CS, REPEAT, TO ... END.',
+    textContent: 'Logo: FD/BK, RT/LT, PU/PD, SETPENCOLOR/SETPC, SETPENSIZE, SETBG, SETXY/SETPOS/SETH, HOME, CLEAN, CS, ARC, HT/ST, REPEAT, TO ... END.',
   });
 
   let execution = 0;
@@ -787,10 +787,10 @@ async function startEngine() {
 
   try {
     if (config.engine === 'webllm') {
-      const { WebLLMEngine } = await import('./engines/webllm-engine.js');
+      const { WebLLMEngine } = await import('./engines/webllm-engine.js?v=1.1');
       engine = new WebLLMEngine();
     } else {
-      const { WllamaEngine } = await import('./engines/wllama-engine.js');
+      const { WllamaEngine } = await import('./engines/wllama-engine.js?v=1.1');
       engine = new WllamaEngine();
     }
     const info = await engine.load(resolveSource(config), ({ progress, text }) => {
@@ -969,6 +969,7 @@ async function send() {
 /** Shows a help popup; the model popup is built from the loaded model. */
 function openHelp(key) {
   const help = key === 'model' ? modelHelp() : HELP[key];
+  const dialog = $('setting-help-dialog');
   $('setting-help-title').textContent = help.title;
   setEmphasized($('setting-help-text'), help.text);
   $('setting-help-facts').replaceChildren(...(help.facts || []).flatMap(([term, value]) => {
@@ -977,8 +978,11 @@ function openHelp(key) {
     return [el('dt', { textContent: term }), description];
   }));
   $('setting-help-facts').classList.toggle('hidden', !help.facts);
+  dialog.setAttribute('aria-describedby', help.facts
+    ? 'setting-help-text setting-help-facts setting-help-example'
+    : 'setting-help-text setting-help-example');
   setEmphasized($('setting-help-example'), help.example);
-  $('setting-help-dialog').showModal();
+  dialog.showModal();
 }
 
 /** Wires the help popups, the message box, the chat buttons and the settings fields. */

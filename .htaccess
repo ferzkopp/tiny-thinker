@@ -5,6 +5,10 @@
   Header always set Cross-Origin-Opener-Policy "same-origin"
   Header always set Cross-Origin-Embedder-Policy "require-corp"
 
+  <FilesMatch "\.(html|js|mjs|css)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+
   # Large model files; the app still revalidates manifest.json and catalog.json on every load.
   <FilesMatch "\.(gguf|bin|wasm)$">
     Header set Cache-Control "public, max-age=2592000"

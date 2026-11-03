@@ -1,7 +1,7 @@
 // First-run tips: a few popups with an arrow that point at the next thing to click, spread over the
 // setup, experiment and chat pages. A cookie remembers the last tip seen, so they only appear once.
-import { el } from './dom.js';
-import { resetExperimentProgress } from './experiments.js';
+import { el } from './dom.js?v=1.1';
+import { resetExperimentProgress } from './experiments.js?v=1.1';
 
 const COOKIE = 'tinythinker_tour_v2';
 export const TOUR_LENGTH = 6;
@@ -70,9 +70,37 @@ export function startTour(steps) {
     target = null;
   }
 
+  let watching = false;
+  let observer = null;
+
+  function schedulePlace() {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      place();
+    });
+  }
+
+  function watchLayout(on) {
+    if (on === watching) return;
+    watching = on;
+    if (on) {
+      window.addEventListener('resize', schedulePlace, { passive: true });
+      document.addEventListener('scroll', schedulePlace, { capture: true, passive: true });
+      observer = new MutationObserver(schedulePlace);
+      observer.observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ['class', 'hidden', 'open'] });
+    } else {
+      window.removeEventListener('resize', schedulePlace);
+      document.removeEventListener('scroll', schedulePlace, true);
+      observer?.disconnect();
+      observer = null;
+      cancelAnimationFrame(frame);
+      frame = 0;
+    }
+  }
+
   /** Keeps the box next to its target while the page scrolls or reflows; hides it while the target is hidden. */
   function place() {
-    frame = requestAnimationFrame(place);
     if (!current || box.classList.contains('hidden')) return;
     const found = current.target();
     if (found !== target) {
@@ -150,12 +178,12 @@ export function startTour(steps) {
     }
     box.classList.remove('hidden');
     if (!sidebar) current.target()?.scrollIntoView?.({ block: 'center' });
-    cancelAnimationFrame(frame);
+    watchLayout(true);
     place();
   }
 
   function stop() {
-    cancelAnimationFrame(frame);
+    watchLayout(false);
     unmark();
     current = null;
     box.classList.add('hidden');

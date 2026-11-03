@@ -40,7 +40,7 @@ async function skipTour(context) {
 
 /** Serves the fake engine instead of the real adapters, so tests control timing and replies. */
 async function prepare(context, { tour = false } = {}) {
-  await context.route('**/engines/*-engine.js', (route) => route.fulfill({ contentType: 'text/javascript', body: fakeEngine }));
+  await context.route(/\/engines\/[^/?]+-engine\.js(?:\?.*)?$/, (route) => route.fulfill({ contentType: 'text/javascript', body: fakeEngine }));
   if (!tour) await skipTour(context);
 }
 
@@ -431,7 +431,7 @@ try {
   assert.equal(new URL(page.url()).searchParams.has('next'), false);
   await page.locator('#override-submit').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#override-submit').textContent(), 'Next: choose an experiment', 'Done restarts setup rather than returning directly to chat');
-  assert.ok(await page.locator('#checks .why').count() >= 6, 'every check says why it matters');
+  assert.ok(await page.locator('#check-reasons li').count() >= 6, 'every check says why it matters');
   console.log('PASS step bar: chat -> experiment picker -> chat, free chat and setup round trip');
 
   const stateContext = await browser.newContext();
@@ -712,7 +712,7 @@ try {
   await skipper.goto(`${base}/index.html?manual=1`);
   await skipper.locator('#override').waitFor({ state: 'visible' });
   assert.equal(await skipper.locator('.tour:not(.hidden)').count(), 0, 'completed older tours do not restart after adding a tip');
-  assert.equal(await skipper.evaluate(async () => (await import('./tour.js')).tourProgress()), 6, 'older completed progress maps to the new final step');
+  assert.equal(await skipper.evaluate(async () => (await import('./tour.js?v=1.1')).tourProgress()), 6, 'older completed progress maps to the new final step');
   await skipContext.close();
   console.log('PASS first-run tips across setup, picker and chat; interactive loader; cookie stops repeats');
   await cold.goto(`${base}/licenses.html`);

@@ -100,6 +100,7 @@ header.top {
 header.top h1 { font-size: 1.15rem; margin: 0; }
 .brand { display: flex; align-items: center; gap: 0.5rem; }
 .brand img { display: block; }
+.app-version { font-size: 0.75rem; font-weight: 400; color: var(--muted); white-space: nowrap; }
 .model-info { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4rem; }
 .model-status {
   display: inline-flex;
@@ -246,8 +247,6 @@ ul.checks .detail { grid-column: 2; color: var(--muted); font-size: 0.875rem; }
 .panel-intro { margin: 0 0 0.75rem; color: var(--muted); }
 #recommendation-explain { font-size: 0.85rem; line-height: 1.4; }
 .welcome p { margin: 0; }
-ul.checks .why { grid-column: 2; font-size: 0.85rem; }
-ul.checks .why::before { content: "Why it matters: "; font-weight: 600; color: var(--guide-strong); }
 
 /* Step bar shown on every page: 1 Set up, 2 Choose an experiment, 3 Chat. */
 .journey { padding: 0.4rem 1rem; border-bottom: 1px solid var(--border); background: var(--panel); }

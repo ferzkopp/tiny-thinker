@@ -1,4 +1,4 @@
-import { LogoInterpreter } from './vendor/jslogo/logo.js';
+import { LogoInterpreter } from './vendor/jslogo/logo.js?v=1.1';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const STAGE_SIZE = 240;
@@ -11,7 +11,7 @@ export const TURTLE_COLORS = {
   blue: '#2f6fde', red: '#d63939', green: '#1a7a43', orange: '#d97706',
   purple: '#7c3aed', pink: '#db2777', teal: '#0d9488', gold: '#b45309',
   black: '#1c2430', gray: '#5d6b7c', grey: '#5d6b7c', white: '#ffffff',
-  yellow: '#ffff00', cyan: '#00ffff', magenta: '#ff00ff', lime: '#00ff00',
+  yellow: '#ffff00', cyan: '#00ffff', magenta: '#ff00ff', lime: '#1a7a43',
   brown: '#a52a2a', tan: '#d2b48c', aquamarine: '#7fffd4', salmon: '#fa8072',
 };
 
@@ -32,7 +32,9 @@ const PRIMITIVES = new Set((
 
 export function extractTurtleCode(text) {
   const source = String(text || '').replace(/\r\n?/g, '\n')
-    .split(/\n\s*(?:User|Human|Question|Prompt):/i)[0].replace(/^\s*Assistant:\s*/i, '');
+    .replace(/^\s*(?:(?:User|Human|Question|Prompt):[^\n]*\n\s*)+(?=Assistant:)/i, '')
+    .replace(/^\s*Assistant:\s*/i, '')
+    .split(/(?:\n|\s+)(?:User|Human|Question|Prompt):/i)[0];
   const blocks = [...source.matchAll(/```([^\n`]*)\n([\s\S]*?)(?:```|$)/g)];
   const block = blocks.find((match) => /^(?:logo|turtle|text|txt|plaintext)?\s*$/i.test(match[1])) || blocks[0];
   return (block ? block[2] : source).trim();
@@ -51,9 +53,44 @@ function checkedSource(code) {
   return source;
 }
 
+function createInterpreter(adapter = {}, onDispatch = null) {
+  const interpreter = new LogoInterpreter(adapter, {});
+  for (const name of interpreter.routines.keys()) {
+    if (!PRIMITIVES.has(name.toLowerCase())) interpreter.routines.delete(name);
+  }
+  for (const [alias, original] of Object.entries(ALIASES)) interpreter.copydef(alias, original);
+  for (const name of Object.keys(TURTLE_COLORS)) {
+    interpreter.routines.set(name, Object.assign(() => name, { minimum: 0, default: 0, maximum: 0, primitive: true }));
+  }
+  const repeat = interpreter.routines.get('repeat');
+  interpreter.routines.set('repeat', Object.assign((count, statements) => {
+    if (!Number.isSafeInteger(count) || count < 0 || count > MAX_REPEAT) {
+      throw new Error(`REPEAT needs a whole number from 0 to ${MAX_REPEAT}.`);
+    }
+    return repeat.call(interpreter, count, statements);
+  }, repeat));
+  const dispatch = interpreter.dispatch;
+  interpreter.dispatch = (name, tokens, natural) => {
+    if (name.toLowerCase() === 'to') {
+      let input = 1;
+      while (typeof tokens[input] === 'string' && tokens[input].startsWith(':')) input += 1;
+      if (input > 9 || Array.isArray(tokens[input]) || /^\d/.test(String(tokens[input]))) {
+        throw new Error('TO supports up to eight required inputs, without optional inputs or custom arity.');
+      }
+    }
+    const evaluate = dispatch(name, tokens, natural);
+    return () => {
+      if (interpreter.stack.length > 64) throw new Error('Logo procedure calls may nest at most 64 levels.');
+      onDispatch?.();
+      return evaluate();
+    };
+  };
+  return interpreter;
+}
+
 export function parseTurtle(code) {
   try {
-    return { ast: new LogoInterpreter({}, {}).parse(checkedSource(code)), errors: [] };
+    return { ast: createInterpreter().parse(checkedSource(code)), errors: [] };
   } catch (error) {
     return { ast: [], errors: [error.message] };
   }
@@ -134,38 +171,12 @@ export async function runTurtle(code) {
   };
   try {
     const source = checkedSource(code);
-    const interpreter = new LogoInterpreter(adapter, {});
-    for (const name of interpreter.routines.keys()) {
-      if (!PRIMITIVES.has(name.toLowerCase())) interpreter.routines.delete(name);
-    }
-    for (const [alias, original] of Object.entries(ALIASES)) interpreter.copydef(alias, original);
-    for (const name of Object.keys(TURTLE_COLORS)) {
-      interpreter.routines.set(name, Object.assign(() => name, { minimum: 0, default: 0, maximum: 0, primitive: true }));
-    }
-    const repeat = interpreter.routines.get('repeat');
-    interpreter.routines.set('repeat', Object.assign((count, statements) => {
-      if (!Number.isSafeInteger(count) || count < 0 || count > MAX_REPEAT) {
-        throw new Error(`REPEAT needs a whole number from 0 to ${MAX_REPEAT}.`);
+    const interpreter = createInterpreter(adapter, () => {
+      result.steps += 1;
+      if (result.steps > MAX_STEPS || Date.now() - started > 1000) {
+        throw new Error(`Stopped at the Logo execution limit (${MAX_STEPS} operations / 1 second).`);
       }
-      return repeat.call(interpreter, count, statements);
-    }, repeat));
-    const dispatch = interpreter.dispatch;
-    interpreter.dispatch = (name, tokens, natural) => {
-      if (interpreter.stack.length > 64) throw new Error('Logo procedure calls may nest at most 64 levels.');
-      if (name.toLowerCase() === 'to') {
-        let input = 1;
-        while (typeof tokens[input] === 'string' && tokens[input].startsWith(':')) input += 1;
-        if (input > 9 || Array.isArray(tokens[input]) || /^\d/.test(String(tokens[input]))) {
-          throw new Error('TO supports up to eight required inputs, without optional inputs or custom arity.');
-        }
-      }
-      const evaluate = dispatch(name, tokens, natural);
-      return () => {
-        result.steps += 1;
-        if (result.steps > MAX_STEPS || Date.now() - started > 1000) throw new Error(`Stopped at the Logo execution limit (${MAX_STEPS} operations / 1 second).`);
-        return evaluate();
-      };
-    };
+    });
     result.ast = interpreter.parse(source);
     await interpreter.execute(result.ast);
   } catch (error) {

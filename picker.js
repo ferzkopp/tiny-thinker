@@ -1,9 +1,9 @@
 // Experiment picker: shows every classroom experiment as a card and opens the chat with the chosen one.
-import { ENGINES, describeModel, loadConfig, saveConfig, configToQuery } from './models.js';
-import { wireLicenseLinks } from './licenses.js';
-import { EXPERIMENTS, EXPERIMENT_BADGES, getExperiment, withExperiment, experimentBadgeLevel } from './experiments.js';
-import { startTour } from './tour.js';
-import { el } from './dom.js';
+import { ENGINES, describeModel, loadConfig, saveConfig, configToQuery } from './models.js?v=1.1';
+import { wireLicenseLinks } from './licenses.js?v=1.1';
+import { EXPERIMENTS, EXPERIMENT_BADGES, getExperiment, withExperiment, experimentBadgeLevel } from './experiments.js?v=1.1';
+import { startTour } from './tour.js?v=1.1';
+import { el } from './dom.js?v=1.1';
 
 const $ = (id) => document.getElementById(id);
 
