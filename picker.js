@@ -39,6 +39,12 @@ export function renderExperimentCards(list, config, current) {
     card(activity, index + 1, `chat.html?${withExperiment(query, activity.id)}`, activity === current)));
 }
 
+export function renderSetupSummary(config) {
+  const engine = ENGINES[config.engine];
+  const model = describeModel(config);
+  $('setup-text').textContent = `${model.label} running on your ${config.engine === 'webllm' ? 'graphics chip' : 'processor'} (${engine.label}, ${engine.backend}). ${model.detail}.`;
+}
+
 /** Lists the experiments for the saved setup, or sends the student to the device check if there is none. */
 function main() {
   $('boot-warning').remove();
@@ -51,9 +57,7 @@ function main() {
   saveConfig(config);
   const query = configToQuery(config);
   const current = getExperiment(new URLSearchParams(location.search).get('experiment'));
-  const engine = ENGINES[config.engine];
-  const model = describeModel(config);
-  $('setup-text').textContent = `${model.label} running on your ${config.engine === 'webllm' ? 'graphics chip' : 'processor'} (${engine.label}, ${engine.backend}). ${model.detail}.`;
+  renderSetupSummary(config);
   $('free-chat').href = `chat.html?${query}`;
 
   function renderCards() {

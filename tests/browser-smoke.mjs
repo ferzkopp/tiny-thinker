@@ -65,6 +65,10 @@ async function chooseExperiment(page, id) {
   await page.locator('#journey-experiments').click();
   if (await page.locator('#leave-confirm').isVisible()) await page.locator('#leave-continue').click();
   await page.locator('#experiment-picker').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#change-setup').isVisible(), true, 'embedded picker offers Change setup');
+  assert.equal(await page.locator('#change-setup').getAttribute('href'), 'index.html?manual=1', 'Change setup opens manual setup');
+  assert.match(await page.locator('#setup-text').textContent(), /running on your/);
+  assert.equal(await page.locator('.setup-summary').evaluate((model) => Boolean(document.querySelector('.free-chat-panel').compareDocumentPosition(model) & Node.DOCUMENT_POSITION_FOLLOWING)), true, 'embedded model details follow activities and free chat');
   assert.equal(await page.getByRole('button', { name: 'Keep chatting', exact: true }).count(), 0, 'picker has no obsolete return action');
   if (id) await page.locator(`.experiment-card[href*="experiment=${id}"]`).click();
   else await page.locator('#free-chat').click();
@@ -374,7 +378,7 @@ try {
   await ready(page);
   assert.equal(new URL(page.url()).searchParams.get('experiment'), 'facts');
   assert.equal(new URL(page.url()).searchParams.get('engine'), 'wllama');
-  assert.equal(await page.locator('a[href*="index.html"]').count(), 0, 'chat has no direct setup links');
+  assert.equal(await page.locator('a[href*="index.html"]:visible').count(), 0, 'active chat has no direct setup links');
   assert.match(await page.locator('#journey-experiments').getAttribute('href'), /engine=wllama.*experiment=facts/);
   console.log('PASS invalid IDs and activity preserved during GPU-to-CPU fallback');
 
@@ -395,6 +399,7 @@ try {
   await page.keyboard.press('Enter');
   await page.locator('#leave-continue').click();
   await page.locator('#experiment-picker').waitFor({ state: 'visible' });
+  assert.match(await page.locator('#setup-text').textContent(), /running on your processor.*wllama/, 'picker summary reflects GPU-to-CPU fallback');
   await page.locator('.experiment-card').first().waitFor();
   assert.equal(await page.locator('.experiment-card').count(), 13);
   assert.match(await page.locator('.pick-intro').textContent(), /Choose a new experiment/);

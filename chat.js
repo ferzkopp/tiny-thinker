@@ -5,7 +5,7 @@ import { wireLicenseLinks } from './licenses.js?v=1.2';
 import { getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle, EXPERIMENT_BADGES, experimentBadgeLevel, recordExperimentInteraction } from './experiments.js?v=1.2';
 import { extractTurtleCode, runTurtle, renderTurtleSvg } from './turtle.js?v=1.2';
 import { renderLoadingLessons } from './loading.js?v=1.2';
-import { renderExperimentCards } from './picker.js?v=1.2';
+import { renderExperimentCards, renderSetupSummary } from './picker.js?v=1.2';
 import { startTour } from './tour.js?v=1.2';
 import { el } from './dom.js?v=1.2';
 
@@ -430,6 +430,7 @@ function wireModes() {
     if (!visible) steps[2].setAttribute('aria-current', 'step');
     if (visible) {
       renderExperimentCards($('experiment-list'), config, activeActivity);
+      renderSetupSummary(config);
       $('free-chat').href = `chat.html?${configToQuery(config)}`;
       document.title = 'Choose an experiment - Tiny Thinker';
       $('pick-title').focus();

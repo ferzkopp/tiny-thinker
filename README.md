@@ -15,7 +15,7 @@ A static HTML/JavaScript playground with no build step or application backend. A
 
 ## In action
 
-![Horizontal three-panel overview of Tiny Thinker's new design: 1. Intro (device check and model recommendation), 2. Experiments (all 13 classroom activities and free chat), and 3. Chat (Turtle artist conversation with a gold five-point star, editable Logo code, instructions and settings).](docs/images/turtle-artist.png)
+![Horizontal three-panel overview of Tiny Thinker v1.2: 1. Set up (device checks, explanations and model recommendation), 2. Choose an experiment (all 13 classroom activities and free chat), and 3. Chat and learn (Turtle artist conversation with a gold five-point star, editable Logo code, instructions and settings).](docs/images/turtle-artist.png)
 
 **Three-step workflow (`Set up` -> `Choose an experiment` -> `Chat and learn`):** check the device and pick a model, choose one of the thirteen classroom experiments, then explore in the chat — shown here with **13. Turtle artist** running Qwen2.5 1.5B in the browser through the CPU engine.
 
