@@ -1,12 +1,63 @@
 // Unit tests for the mode catalog and its helpers (Node's built-in test runner, no browser needed).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { EXPERIMENTS, getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, experimentBadgeLevel, recordExperimentInteraction, resetExperimentProgress } from '../experiments.js';
 import { extractTurtleCode, parseTurtle, runTurtle } from '../turtle.js';
+import { release, updateVersionReferences } from '../release.mjs';
+
+test('TinyLlama has both GPU precisions, a CPU build and its native context limit', () => {
+  const catalog = JSON.parse(readFileSync(new URL('../catalog.json', import.meta.url), 'utf8'));
+  const model = catalog.tiers.balanced;
+  assert.equal(model.upstream, 'TinyLlama/TinyLlama-1.1B-Chat-v1.0');
+  assert.equal(catalog.families[model.family].license, 'Apache-2.0');
+  assert.equal(catalog.families[model.family].vocabSize, 32000);
+  assert.equal(model.contextSize, 2048);
+  assert.equal(model.webllm.f16.id, 'TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC');
+  assert.equal(model.webllm.f32.id, 'TinyLlama-1.1B-Chat-v1.0-q4f32_1-MLC');
+  assert.ok(model.webllm.f16.vramMB > catalog.tiers.small.webllm.f16.vramMB);
+  assert.ok(model.webllm.f16.vramMB < catalog.tiers.medium.webllm.f16.vramMB);
+  assert.equal(model.gguf.file, 'tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf');
+  assert.equal(model.gguf.sizeMB, 638);
+});
+
+test('TinyLlama setups resolve for both engines without changing existing context limits or recommendations', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => ({
+    ok: true,
+    json: async () => url.pathname.endsWith('/catalog.json')
+      ? JSON.parse(readFileSync(url, 'utf8'))
+      : { webllm: {}, gguf: {} },
+  });
+  let models;
+  try {
+    models = await import('../models.js');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  for (const variant of ['f16', 'f32']) {
+    const setup = models.validateConfig({ engine: 'webllm', tier: 'balanced', variant });
+    assert.equal(models.modelContextSize(setup), 2048);
+    assert.equal(models.resolveSource(setup).id, models.CATALOG.tiers.balanced.webllm[variant].id);
+    assert.equal(models.describeModel(setup).label, 'TinyLlama 1.1B');
+    assert.equal(models.parameterCount('balanced').count, 1.1e9);
+  }
+  const cpu = models.validateConfig({ engine: 'wllama', tier: 'balanced' });
+  assert.equal(models.modelContextSize(cpu), 2048);
+  assert.equal(models.resolveSource(cpu).repo, 'TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF');
+  assert.equal(models.modelContextSize({ engine: 'webllm', tier: 'medium' }), 4096);
+  assert.equal(models.modelContextSize({ engine: 'wllama', tier: 'medium' }), 2048);
+  assert.equal(models.countLocalModels().total, 15);
+  const caps = { wasm: true, wasmSimd: true, secureContext: true, webgpu: { available: true, f16: true }, deviceMemoryGB: 8, mobile: false, cores: 8, threads: true, storageFreeMB: 10000 };
+  assert.equal(models.recommend(caps).tier, 'medium');
+  assert.equal(models.incompatibility('webllm', 'balanced', caps), '');
+  assert.equal(models.incompatibility('wllama', 'balanced', caps), '');
+});
 
 test('release labels and the entire local module graph use the same cache version', () => {
-  const version = '1.1';
+  const { version } = JSON.parse(readFileSync(new URL('../version.json', import.meta.url), 'utf8'));
   const visited = new Set();
   function checkModule(moduleUrl) {
     assert.equal(moduleUrl.search, `?v=${version}`, moduleUrl.href);
@@ -26,6 +77,50 @@ test('release labels and the entire local module graph use the same cache versio
     const script = html.match(/<script type="module" src="([^"]+)"/);
     assert.ok(script, page);
     checkModule(new URL(script[1], pageUrl));
+  }
+});
+
+test('release stamping changes only cache tokens and release labels, not model names or settings', () => {
+  const source = '<small class="app-version">v1.1</small> styles.css?v=1.1 ./engines/webllm-worker.js?v=1.1 TinyLlama 1.1B temperature: 1.1';
+  const updated = updateVersionReferences(source, '1.2');
+  assert.equal(updated, '<small class="app-version">v1.2</small> styles.css?v=1.2 ./engines/webllm-worker.js?v=1.2 TinyLlama 1.1B temperature: 1.1');
+  assert.equal(updateVersionReferences(updated, '1.2'), updated);
+  assert.equal(updateVersionReferences('chat.js?v=1.2.3', '1.3'), 'chat.js?v=1.3');
+});
+
+test('release command detects stale references without writing and stamps from one manifest', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'tiny-thinker-release-'));
+  try {
+    mkdirSync(join(directory, 'engines'));
+    mkdirSync(join(directory, 'tests'));
+    mkdirSync(join(directory, 'models'));
+    const manifestPath = join(directory, 'version.json');
+    writeFileSync(manifestPath, JSON.stringify({ version: '1.2' }));
+    const fixtures = new Map([
+      ['index.html', '<small class="app-version">v1.1</small><link href="styles.css?v=1.1">'],
+      ['chat.js', 'import "./models.js?v=1.1";'],
+      [join('engines', 'engine.js'), 'new Worker("./worker.js?v=1.1");'],
+      [join('tests', 'browser-smoke.mjs'), 'import("./tour.js?v=1.1");'],
+    ]);
+    for (const [file, source] of fixtures) writeFileSync(join(directory, file), source);
+    const modelPath = join(directory, 'models', 'metadata.json');
+    writeFileSync(modelPath, JSON.stringify({ name: 'TinyLlama 1.1B', url: 'upstream?v=1.1' }));
+    assert.throws(() => release(['--check'], directory), /stale references/);
+    for (const [file, source] of fixtures) assert.equal(readFileSync(join(directory, file), 'utf8'), source);
+    assert.throws(() => release(['invalid'], directory), /Release version must/);
+    release([], directory);
+    for (const [file, source] of fixtures) {
+      assert.equal(readFileSync(join(directory, file), 'utf8'), updateVersionReferences(source, '1.2'));
+    }
+    assert.doesNotThrow(() => release(['--check'], directory));
+    release(['1.3'], directory);
+    assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).version, '1.3');
+    for (const [file, source] of fixtures) {
+      assert.equal(readFileSync(join(directory, file), 'utf8'), updateVersionReferences(source, '1.3'));
+    }
+    assert.deepEqual(JSON.parse(readFileSync(modelPath, 'utf8')), { name: 'TinyLlama 1.1B', url: 'upstream?v=1.1' });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 });
 

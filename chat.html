@@ -19,13 +19,13 @@
   <meta name="theme-color" content="#2f6fde">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="license" href="https://opensource.org/license/mit">
-  <link rel="stylesheet" href="styles.css?v=1.1">
-  <script type="module" src="chat.js?v=1.1"></script>
+  <link rel="stylesheet" href="styles.css?v=1.2">
+  <script type="module" src="chat.js?v=1.2"></script>
 </head>
 <body class="chat">
   <a class="skip-link" href="#log">Skip to the chat</a>
   <header class="top">
-    <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker <small class="app-version">v1.1</small></h1>
+    <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker <small class="app-version">v1.2</small></h1>
     <div class="model-info">
       <span id="model-status" class="model-status loading" role="status">Loading</span>
       <span id="setup-badge" class="badge">Loading…</span>
@@ -120,6 +120,12 @@
           <button id="retry-btn" class="hidden" type="button">Try again</button>
           <button id="fallback-btn" class="hidden" type="button">Switch to CPU engine (wllama)</button>
         </p>
+        <details id="debug-info" class="debug-info hidden">
+          <summary>Debug info (optional)</summary>
+          <p>These details include browser and device capabilities, storage estimates, the selected model and the load error. No questions, replies or notes are included. Nothing is sent automatically. Review the details before sharing.</p>
+          <pre id="debug-report"></pre>
+          <button id="download-debug" type="button">Download debug info</button>
+        </details>
       </section>
 
       <div id="log" aria-live="polite" aria-label="Conversation" role="log" tabindex="0"></div>

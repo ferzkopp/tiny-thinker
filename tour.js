@@ -1,16 +1,17 @@
 // First-run tips: a few popups with an arrow that point at the next thing to click, spread over the
 // setup, experiment and chat pages. A cookie remembers the last tip seen, so they only appear once.
-import { el } from './dom.js?v=1.1';
-import { resetExperimentProgress } from './experiments.js?v=1.1';
+import { el } from './dom.js?v=1.2';
+import { resetExperimentProgress } from './experiments.js?v=1.2';
 
 const COOKIE = 'tinythinker_tour_v2';
+const WELCOME_COOKIE = 'tinythinker_welcome';
 export const TOUR_LENGTH = 6;
 const GAP = 12;
 
 const pageUrl = new URL(location.href);
 if (pageUrl.searchParams.get('resetCookies') === '1') {
   const paths = new Set(['/', location.pathname.replace(/[^/]*$/, '') || '/']);
-  for (const name of [COOKIE, 'tinythinker_tour']) {
+  for (const name of [COOKIE, 'tinythinker_tour', WELCOME_COOKIE]) {
     for (const path of paths) {
       document.cookie = `${name}=; max-age=0; path=${path}; SameSite=Lax`;
     }
@@ -36,9 +37,30 @@ function saveProgress(step) {
   document.cookie = `${COOKIE}=${step}; max-age=${365 * 24 * 3600}; path=${path}; SameSite=Lax${secure}`;
 }
 
+export async function showWelcome(dialog, button) {
+  if (document.cookie.split(';').some((cookie) => cookie.trim() === `${WELCOME_COOKIE}=1`)) return;
+  const previousFocus = document.activeElement;
+  await new Promise((resolve) => {
+    const dismiss = () => dialog.close();
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      dismiss();
+    }, { once: true });
+    button.addEventListener('click', dismiss, { once: true });
+    dialog.addEventListener('close', () => {
+      const path = location.pathname.replace(/[^/]*$/, '') || '/';
+      const secure = location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `${WELCOME_COOKIE}=1; max-age=${365 * 24 * 3600}; path=${path}; SameSite=Lax${secure}`;
+      previousFocus?.focus();
+      resolve();
+    }, { once: true });
+    dialog.showModal();
+  });
+}
+
 /**
  * Shows this page's tips one after another, skipping tips already seen.
- * @param {{step: number, target: () => Element|null, title: string|Function, text: string|Function, side?: 'right'|'sidebar'|'intro'}[]} steps
+ * @param {{step: number, target: () => Element|null, title: string|Function, text: string|Function, side?: 'right'|'sidebar'|'intro'|'flow'}[]} steps
  *   `step` is the tip's number in the whole tour; `target` returns the element the arrow points at.
  *   Title and text may be functions, evaluated when the tip appears. `side: 'right'` puts the tip beside
  *   its target when there is room; otherwise tips go below (or above) it. 'sidebar' uses the setup page's left column.
@@ -73,7 +95,10 @@ export function startTour(steps) {
   let watching = false;
   let observer = null;
 
-  function schedulePlace() {
+  function schedulePlace(event) {
+    if (event?.type === 'resize' && !box.classList.contains('tour-sidebar')) {
+      current?.target()?.scrollIntoView?.({ block: 'center' });
+    }
     if (frame) return;
     frame = requestAnimationFrame(() => {
       frame = 0;
@@ -114,6 +139,12 @@ export function startTour(steps) {
       return;
     }
     box.style.visibility = '';
+    if (current.side === 'flow') {
+      box.dataset.side = 'above';
+      arrow.style.top = '';
+      arrow.style.left = `${Math.max(14, Math.min(box.offsetWidth - 14, rect.left + rect.width / 2 - box.getBoundingClientRect().left - box.clientLeft))}px`;
+      return;
+    }
     if (current.side === 'intro') {
       box.dataset.side = 'above';
       arrow.style.top = '';
@@ -121,7 +152,7 @@ export function startTour(steps) {
       return;
     }
     if (current.side === 'sidebar') {
-      const host = document.querySelector(document.querySelector('#override').classList.contains('hidden') ? '.setup-sidebar' : '.setup-picker-sidebar');
+      const host = document.querySelector(document.querySelector('#override').classList.contains('hidden') ? '.setup-recommendation-sidebar' : '.setup-picker-sidebar');
       if (box.parentElement !== host) host.append(box);
       const sidebar = box.parentElement;
       const beside = getComputedStyle(document.querySelector('.setup-page')).gridTemplateColumns.split(' ').length > 1;
@@ -137,6 +168,7 @@ export function startTour(steps) {
     const height = box.offsetHeight;
     const viewWidth = document.documentElement.clientWidth;
     let side = innerHeight - rect.bottom >= height + GAP || rect.top < height + GAP ? 'below' : 'above';
+    if (current.side === 'above' && rect.top >= height + GAP) side = 'above';
     if (current.side === 'right' && viewWidth - rect.right >= width + GAP + 8) side = 'right';
     let left;
     let top;
@@ -149,7 +181,7 @@ export function startTour(steps) {
       left = Math.min(Math.max(8, rect.left + rect.width / 2 - width / 2), viewWidth - width - 8);
       top = Math.max(8, Math.min(side === 'below' ? rect.bottom + GAP : rect.top - height - GAP, innerHeight - height - 8));
       arrow.style.top = '';
-      arrow.style.left = `${Math.min(Math.max(14, rect.left + rect.width / 2 - left), width - 14)}px`;
+      arrow.style.left = `${Math.min(Math.max(14, rect.left + rect.width / 2 - left - box.clientLeft), width - 14)}px`;
     }
     box.style.left = `${left}px`;
     box.style.top = `${top}px`;
@@ -166,14 +198,18 @@ export function startTour(steps) {
     title.textContent = typeof current.title === 'function' ? current.title() : current.title;
     text.textContent = typeof current.text === 'function' ? current.text() : current.text;
     next.textContent = current.step === TOUR_LENGTH ? 'Done' : 'Got it';
-    const sidebar = current.side === 'sidebar' || current.side === 'intro';
+    const sidebar = current.side === 'sidebar' || current.side === 'intro' || current.side === 'flow';
     box.classList.toggle('tour-sidebar', sidebar);
     box.classList.toggle('tour-intro', current.side === 'intro');
+    box.classList.toggle('tour-flow', current.side === 'flow');
     box.style.marginTop = '';
+    box.style.left = '';
+    box.style.top = '';
     const setup = document.querySelector('.setup-page');
     if (sidebar && setup) {
-      if (current.side === 'intro') setup.prepend(box);
-      else setup.querySelector('.setup-sidebar').append(box);
+      if (current.side === 'flow') setup.querySelector('.setup-content').insertBefore(box, document.querySelector('#result'));
+      else if (current.side === 'intro') setup.prepend(box);
+      else setup.querySelector('.setup-recommendation-sidebar').prepend(box);
       setup.classList.add('setup-tour-active');
     }
     box.classList.remove('hidden');

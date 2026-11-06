@@ -5,7 +5,7 @@ models/manifest.json is rebuilt from what is complete on disk; the web app reads
 to decide between the self-hosted copy and Hugging Face.
 
 Usage:
-  python download_models.py --profile classroom          # all classroom builds, pinned revisions (~5.3 GB)
+    python download_models.py --profile classroom          # all classroom builds, pinned revisions (~7.3 GB)
   python download_models.py --profile classroom --check  # check local files without network or changes
   python download_models.py                              # every build, latest upstream revisions
   python download_models.py --tiers tiny small           # only some tiers

@@ -125,7 +125,7 @@ class DownloadTests(unittest.TestCase):
         with open(Path(downloader.ROOT) / "catalog.json", encoding="utf-8") as source:
             catalog = json.load(source)
         self.assertEqual(profile["tiers"], list(catalog["tiers"]))
-        self.assertEqual(len(profile["revisions"]), 12)
+        self.assertEqual(len(profile["revisions"]), len(catalog["tiers"]) * (len(profile["variants"]) + 1))
         for tier_key in profile["tiers"]:
             model = catalog["tiers"][tier_key]
             self.assertRegex(profile["revisions"][model["gguf"]["repo"]], r"^[0-9a-f]{40}$")

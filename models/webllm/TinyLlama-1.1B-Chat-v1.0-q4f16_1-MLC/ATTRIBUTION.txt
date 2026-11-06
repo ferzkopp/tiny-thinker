@@ -1,0 +1,9 @@
+Model:           TinyLlama 1.1B Instruct (q4f16_1)
+Original model:  https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0
+Copyright:       TinyLlama project
+License:         Apache License 2.0 (Apache-2.0), see LICENSE in this folder
+                 https://www.apache.org/licenses/LICENSE-2.0
+License text:    https://www.apache.org/licenses/LICENSE-2.0.txt
+Files from:      https://huggingface.co/mlc-ai/TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC (revision aa4e41dd1861bb2469f9ddfb8fa3054b857a00ed)
+Changes:         Converted and quantized (q4f16_1) to MLC format by the MLC LLM project; not modified further.
+Downloaded:      2026-11-06

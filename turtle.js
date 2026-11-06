@@ -1,4 +1,4 @@
-import { LogoInterpreter } from './vendor/jslogo/logo.js?v=1.1';
+import { LogoInterpreter } from './vendor/jslogo/logo.js?v=1.2';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const STAGE_SIZE = 240;

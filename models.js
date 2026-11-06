@@ -31,6 +31,11 @@ export const ENGINES = {
   wllama: { label: 'wllama', backend: 'CPU (WASM)', contextSize: 2048 },
 };
 
+export function modelContextSize(config) {
+  const engineLimit = ENGINES[config.engine].contextSize;
+  return Math.min(engineLimit, CATALOG.tiers[config.tier].contextSize ?? engineLimit);
+}
+
 // Key name predates the Tiny Thinker name; changing it would discard setups saved in existing browsers.
 const CONFIG_KEY = 'browserai.config';
 
@@ -125,29 +130,37 @@ export function incompatibility(engine, tier, caps) {
 }
 
 /**
- * Recommends the largest model the device should handle: WebGPU first, otherwise the CPU engine.
- * @returns {{engine: string, tier: string, variant: string}|null} null if WebAssembly SIMD is missing.
+ * Recommends a starting model: WebGPU first, otherwise the CPU engine.
+ * @returns {{engine: string, tier: string, variant: string}|null} null if no setup fits the checks.
  */
 export function recommend(caps) {
   if (!caps.wasm || !caps.wasmSimd) return null;
-  const memGB = caps.deviceMemoryGB ?? (caps.mobile ? 4 : 8);
-  const fits = (engine, tier) => !incompatibility(engine, tier, caps);
+  const memGB = caps.deviceMemoryGB ?? 2;
+  const fits = (engine, tier) => {
+    if (incompatibility(engine, tier, caps)) return false;
+    const model = CATALOG.tiers[tier];
+    const sizeMB = engine === 'webllm' ? model.webllm[webllmVariant(caps)].vramMB : model.gguf.sizeMB;
+    return caps.storageFreeMB === null || caps.storageFreeMB >= sizeMB * 2 + 256;
+  };
 
   if (fits('webllm', 'tiny')) {
+    const gpuMemGB = caps.deviceMemoryGB ?? (
+      !caps.mobile && caps.cores >= 8 && caps.webgpu.f16 && caps.webgpu.maxBufferMB >= 1024 ? 8 : 2
+    );
     let candidates;
-    if (caps.mobile || memGB < 4) candidates = ['small', 'tiny'];
-    else if (memGB < 8) candidates = ['medium', 'small', 'tiny'];
-    else candidates = ['quality', 'medium', 'small', 'tiny'];
+    if (gpuMemGB < 4) candidates = ['tiny'];
+    else if (caps.mobile || gpuMemGB < 8 || !caps.webgpu.f16 || caps.storageFreeMB === null) candidates = ['small', 'tiny'];
+    else candidates = ['medium', 'small', 'tiny'];
     const tier = candidates.find((t) => fits('webllm', t));
     return { engine: 'webllm', tier, variant: webllmVariant(caps) };
   }
 
   let candidates;
   if (memGB < 2 || caps.cores < 4) candidates = ['tiny'];
-  else if (memGB < 4 || !caps.threads) candidates = ['small', 'tiny'];
+  else if (memGB < 8 || !caps.threads || caps.mobile || caps.storageFreeMB === null) candidates = ['small', 'tiny'];
   else candidates = ['medium', 'small', 'tiny'];
-  const tier = candidates.find((t) => fits('wllama', t)) ?? 'tiny';
-  return { engine: 'wllama', tier, variant: '' };
+  const tier = candidates.find((t) => fits('wllama', t));
+  return tier ? { engine: 'wllama', tier, variant: '' } : null;
 }
 
 /**

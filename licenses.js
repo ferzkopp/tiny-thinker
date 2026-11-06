@@ -1,6 +1,6 @@
 // License and attribution listing, shown on licenses.html and as a popup on the other pages.
-import { CATALOG, MANIFEST, MODELS_BASE, TIERS, tierInfo } from './models.js?v=1.1';
-import { el } from './dom.js?v=1.1';
+import { CATALOG, MANIFEST, MODELS_BASE, TIERS, tierInfo } from './models.js?v=1.2';
+import { el } from './dom.js?v=1.2';
 
 const HF = 'https://huggingface.co/';
 

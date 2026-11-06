@@ -1,14 +1,14 @@
 // Device check page (step 1): probes the browser, recommends an engine and model, then forwards to the
 // experiment picker, or straight to the chat when the link names an experiment or came from the chat.
-import { detectCapabilities } from './capabilities.js?v=1.1';
+import { detectCapabilities } from './capabilities.js?v=1.2';
 import {
   ENGINES, TIERS, tierInfo, parameterCount, countLocalModels,
   recommend, incompatibility, webllmVariant, describeModel, configToQuery, saveConfig, loadConfig,
-} from './models.js?v=1.1';
-import { wireLicenseLinks } from './licenses.js?v=1.1';
-import { getExperiment, withExperiment, numberedTitle } from './experiments.js?v=1.1';
-import { startTour, tourProgress } from './tour.js?v=1.1';
-import { el } from './dom.js?v=1.1';
+} from './models.js?v=1.2';
+import { wireLicenseLinks } from './licenses.js?v=1.2';
+import { EXPERIMENTS, getExperiment, withExperiment, numberedTitle } from './experiments.js?v=1.2';
+import { showWelcome, startTour, tourProgress } from './tour.js?v=1.2';
+import { el } from './dom.js?v=1.2';
 
 const COUNTDOWN_SECONDS = 5;
 const $ = (id) => document.getElementById(id);
@@ -40,45 +40,45 @@ function addCheck(status, label, detail, why) {
 
 /** Shows the result of every capability probe as a checklist. */
 function renderChecks(caps) {
-  addCheck(caps.secureContext ? 'ok' : 'warn', 'Secure context',
+  addCheck(caps.secureContext ? 'ok' : 'warn', 'Trusted connection',
     caps.secureContext ? (caps.protocol === 'https:' ? 'HTTPS connection' : 'Local address: trusted by the browser, even over HTTP')
       : 'Not HTTPS or localhost: WebGPU and some storage features are disabled',
-    'HTTPS and trusted local addresses such as localhost enable powerful browser features.');
+    'HTTPS or localhost unlocks advanced browser features.');
 
   const g = caps.webgpu;
-  const whyGpu = 'The graphics chip handles many calculations at once for faster replies.';
+  const whyGpu = 'Runs many calculations at once for faster replies.';
   if (g.available) {
     const gpu = [g.vendor, g.architecture].filter(Boolean).join(' ') || 'GPU detected';
-    addCheck('ok', 'WebGPU', `${gpu}; half-precision (shader-f16): ${g.f16 ? 'yes' : 'no'}; max buffer ${g.maxBufferMB} MB`, whyGpu);
+    addCheck('ok', 'Graphics chip (WebGPU)', `${gpu}; compact calculations (shader-f16): ${g.f16 ? 'yes' : 'no'}; max buffer ${g.maxBufferMB} MB`, whyGpu);
   } else {
-    addCheck('warn', 'WebGPU', `${g.error || 'Unavailable'}. The CPU engine will be used instead.`, whyGpu);
+    addCheck('warn', 'Graphics chip (WebGPU)', `${g.error || 'Unavailable'}. Your processor (CPU) will run the AI instead.`, whyGpu);
   }
 
-  addCheck(caps.wasm && caps.wasmSimd ? 'ok' : 'fail', 'WebAssembly SIMD',
+  addCheck(caps.wasm && caps.wasmSimd ? 'ok' : 'fail', 'Fast browser math (WebAssembly SIMD)',
     caps.wasm ? (caps.wasmSimd ? '' : 'WebAssembly works but SIMD is missing; please update your browser') : 'WebAssembly is not available',
-    'Runs fast code in the browser; SIMD handles several calculations per step. Both are required.');
+    'Required for these models; SIMD speeds up calculations.');
 
-  addCheck(caps.threads ? 'ok' : 'warn', 'Multithreaded WebAssembly',
-    caps.threads ? 'Cross-origin isolated: CPU inference can use several threads'
-      : 'Not cross-origin isolated: CPU inference runs single-threaded (server needs COOP/COEP headers)',
-    'Several processor cores can work on a reply together.');
+  addCheck(caps.threads ? 'ok' : 'warn', 'Processor teamwork (WebAssembly threads)',
+    caps.threads ? 'Several processor threads can work together on replies'
+      : 'One processor thread will work on replies; this site needs isolation headers to enable teamwork',
+    'Lets processor cores work on a reply together.');
 
   const mem = caps.deviceMemoryGB === null ? 'not reported by this browser' : `${caps.deviceMemoryGB} GB${caps.deviceMemoryGB >= 8 ? '+' : ''}`;
-  addCheck('ok', 'Hardware', `${caps.cores} CPU threads, memory ${mem}, ${caps.mobile ? 'mobile' : 'desktop'} device`,
-    'The model must fit in memory. More memory allows bigger models.');
+  addCheck('ok', 'Processor and memory', `${caps.cores} CPU threads, memory ${mem}, ${caps.mobile ? 'mobile' : 'desktop'} device`,
+    'Bigger models need more working memory.');
 
-  const whyStorage = 'The browser can cache the model to avoid downloading it again.';
+  const whyStorage = 'Caches model files so you can reuse downloads.';
   if (caps.storageFreeMB === null) {
-    addCheck('warn', 'Storage', 'Could not estimate free storage', whyStorage);
+    addCheck('warn', 'Room for downloads', 'Could not estimate free storage', whyStorage);
   } else {
-    addCheck(caps.storageFreeMB > 1024 ? 'ok' : 'warn', 'Storage', `${caps.storageFreeMB.toLocaleString()} MB available to this site`, whyStorage);
+    addCheck(caps.storageFreeMB > 1024 ? 'ok' : 'warn', 'Room for downloads', `${caps.storageFreeMB.toLocaleString()} MB available to this site`, whyStorage);
   }
 
   const { present, total } = countLocalModels();
-  addCheck(present ? 'ok' : 'warn', 'Self-hosted model files',
+  addCheck(present ? 'ok' : 'warn', 'Where your AI downloads from',
     present ? `${present} of ${total} model builds served by this site; others load from Hugging Face`
       : 'None found on this server; models load from Hugging Face',
-    'Models load from this site when available, otherwise from the Hugging Face model library.');
+    'Model files come from this site or Hugging Face, an online library of AI models. Your questions are not sent there.');
 }
 
 /** One-line summary of a setup, e.g. "wllama on CPU (WASM) with SmolLM2 135M (...)". */
@@ -93,7 +93,7 @@ function explainConfig(config) {
   const gpu = config.engine === 'webllm';
   return `${ENGINES[config.engine].label} is the engine, the program that runs the AI. It will use your ${gpu ? 'graphics chip' : 'processor'}. `
     + `${tierInfo(config.tier).label} is the model, the AI itself. It has ${parameterCount(config.tier).words} numbers, called parameters, that it learned from text. `
-    + 'It is the biggest model that should run well on this device.';
+    + 'This is a cautious starting choice, not a guarantee: browsers do not report all available memory or cache limits. Change lets you try another model.';
 }
 
 /** Builds a setup; WebLLM needs the precision variant this GPU supports, the CPU engine none. */
@@ -157,6 +157,7 @@ function renderOverride(caps, initial) {
     go(setupFor(selectedEngine, selectedTier, caps));
   });
   $('result').classList.add('hidden');
+  $('recommendation-help').classList.add('hidden');
   $('override-help').classList.remove('hidden');
   $('countdown-status').textContent = 'Choose engine and model.';
   form.classList.remove('hidden');
@@ -216,13 +217,18 @@ async function main() {
   wireLicenseLinks();
   $('go-now').textContent = nextLabel;
   $('override-submit').textContent = nextLabel;
+  $('welcome-experiment-count').textContent = String(EXPERIMENTS.length);
+  const welcome = showWelcome($('first-welcome'), $('welcome-go'));
   const caps = await detectCapabilities();
   renderChecks(caps);
+  await welcome;
 
   const rec = recommend(caps);
   if (!rec) {
     const box = $('unsupported');
-    box.textContent = 'This browser cannot run the models: WebAssembly with SIMD is required. Please use a current version of Chrome, Edge, Firefox or Safari.';
+    box.textContent = caps.wasm && caps.wasmSimd
+      ? 'There is not enough reported browser storage for a model with room to spare. Free some browser storage, then reload, or try another device. Clearing site data removes cached models, saved settings and badges; models will need to download again.'
+      : 'This browser cannot run the models: WebAssembly with SIMD is required. Please use a current version of Chrome, Edge, Firefox or Safari.';
     box.classList.remove('hidden');
     return;
   }
@@ -230,6 +236,7 @@ async function main() {
   $('recommendation').textContent = describeConfig(rec);
   $('recommendation-explain').textContent = explainConfig(rec);
   $('result').classList.remove('hidden');
+  $('recommendation-help').classList.remove('hidden');
 
   const firstVisit = tourProgress() < 2;
   const manual = params.has('manual');
@@ -242,13 +249,12 @@ async function main() {
   }
   tour = startTour([{
     step: 1,
-    side: 'intro',
-    target: () => document.querySelector('.setup-sidebar .setup-checks'),
-    title: 'Your instruction panels',
-    text: 'The yellow panels explain what you are looking at and help you choose what to do. Here, they explain each device check. In chat, they guide your experiment.',
+    target: () => document.querySelector('.journey'),
+    title: 'Your path: 1, 2, 3',
+    text: 'First, set up this device. Next, choose an experiment. Then chat and learn by trying questions and comparing replies. The yellow instruction panels explain what you are looking at here and guide your experiment in chat.',
   }, {
     step: 2,
-    side: 'sidebar',
+    side: 'above',
     target: () => ($('override').classList.contains('hidden') ? $('go-now') : $('override-submit')),
     title: 'Your device is ready',
     text: 'We checked this device and picked an AI model that should run well on it. Press the blue button to continue. Change lets you pick a different model.',

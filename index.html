@@ -41,12 +41,12 @@
     "sameAs": "https://github.com/ferzkopp/tiny-thinker"
   }
   </script>
-  <link rel="stylesheet" href="styles.css?v=1.1">
-  <script type="module" src="check.js?v=1.1"></script>
+  <link rel="stylesheet" href="styles.css?v=1.2">
+  <script type="module" src="check.js?v=1.2"></script>
 </head>
 <body>
   <header class="top">
-    <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker <small class="app-version">v1.1</small></h1>
+    <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker <small class="app-version">v1.2</small></h1>
     <span class="badge tagline">Learn AI by playing with it, right in your browser</span>
   </header>
 
@@ -58,17 +58,35 @@
     </ol>
   </nav>
 
+  <dialog id="first-welcome" class="first-welcome" aria-labelledby="first-welcome-title" aria-describedby="first-welcome-description">
+    <img src="icon.svg" alt="Tiny Thinker, a yellow robot with a thought bubble" width="96" height="96">
+    <h2 id="first-welcome-title">Meet Tiny Thinker</h2>
+    <div id="first-welcome-description">
+      <p>AI is showing up in school, work and everyday life. Knowing how to question AI-generated answers matters just as much as knowing how to use AI tools.</p>
+      <p>Here, you can try a small AI language model: a program that learned patterns from text and uses them to write replies. It runs right in your browser. It's free to use, no account is needed, and your questions are not sent to an AI server.</p>
+      <p>Choose from <span id="welcome-experiment-count"></span> experiments, like remixing a story, investigating a surprising answer, comparing languages or drawing with code. Change your question or try different settings, such as the reply length limit or how randomly the AI chooses words, and compare the answers.</p>
+      <p>AI can sound confident and still be wrong. Practise checking its answers, spotting unfair assumptions and deciding what to keep or improve.</p>
+      <p>Remember, you are in charge of the thinking.</p>
+    </div>
+    <button id="welcome-go" class="primary" type="button">Let's go</button>
+  </dialog>
+
   <main class="page setup-page">
     <section class="panel welcome">
-      <h2>Welcome!</h2>
-      <p>Tiny Thinker runs a small AI language model right inside this browser. Your questions are not sent to an AI server.
-        Getting started takes three steps: <strong>set up</strong> this device, <strong>choose an experiment</strong>,
-        then <strong>chat and learn</strong> by trying questions and comparing replies.</p>
+      <h2>Your AI playground</h2>
+      <p>Try a small AI language model in your browser, free and without an account. Change questions or settings, compare replies and learn to question AI. Confident answers can still be wrong. Your questions stay on your device; you stay in charge of the thinking.</p>
     </section>
     <aside class="setup-sidebar">
       <section class="panel setup-checks">
-        <h2>Why it matters?</h2>
+        <h2>What powers your AI?</h2>
+        <p class="datacenter-intro">This device is your mini datacenter. Its graphics chip, processor and memory run the AI.</p>
         <ul id="check-reasons" class="check-reasons"></ul>
+      </section>
+    </aside>
+    <aside id="recommendation-help" class="setup-recommendation-sidebar hidden">
+      <section class="panel setup-checks">
+        <h2>Meet your engine and model</h2>
+        <p id="recommendation-explain" class="override-explanation"></p>
       </section>
     </aside>
     <aside id="override-help" class="setup-picker-sidebar hidden">
@@ -85,14 +103,13 @@
     </div>
 
     <section class="panel setup-results">
-      <h2>Checking your device</h2>
+      <h2 class="datacenter-title"><img src="datacenter.svg" alt="" width="36" height="36"> Your datacenter</h2>
       <ul id="checks" class="checks" aria-live="polite"></ul>
     </section>
 
     <section id="result" class="panel hidden">
       <h2>Recommended setup</h2>
       <p id="recommendation" class="recommendation"></p>
-      <p id="recommendation-explain" class="panel-intro"></p>
       <div id="countdown" class="countdown hidden">
         <button id="go-now" class="primary" type="button">Next: choose an experiment</button>
         <button id="change" type="button">Change</button>
@@ -117,7 +134,7 @@
       <button id="override-submit" class="primary" type="submit">Next: choose an experiment</button>
     </form>
 
-    <p><small>No accounts or inference server. Questions and replies are processed on your device. Models download from this site or Hugging Face; engine libraries load from jsDelivr. These asset requests use the network, and browser caches can be cleared or evicted.
+    <p><small>No accounts or inference server. Questions and replies are processed on your device. Models download from this site or Hugging Face, an online library of AI models; engine libraries load from jsDelivr. These asset requests use the network, and browser caches can be cleared or evicted.
       <a href="licenses.html" data-licenses>Model licenses</a></small></p>
     </div>
   </main>

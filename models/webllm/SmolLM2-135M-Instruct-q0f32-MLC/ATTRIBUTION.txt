@@ -6,4 +6,4 @@ License:         Apache License 2.0 (Apache-2.0), see LICENSE in this folder
 License text:    https://www.apache.org/licenses/LICENSE-2.0.txt
 Files from:      https://huggingface.co/mlc-ai/SmolLM2-135M-Instruct-q0f32-MLC (revision ba1ecf858a4dfc6ac3e668c388a7088bdfb3c091)
 Changes:         Converted and quantized (q0f32) to MLC format by the MLC LLM project; not modified further.
-Downloaded:      2026-10-30
+Downloaded:      2026-11-06

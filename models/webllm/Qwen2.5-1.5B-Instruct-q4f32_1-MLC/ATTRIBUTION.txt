@@ -6,4 +6,4 @@ License:         Apache License 2.0 (Apache-2.0), see LICENSE in this folder
 License text:    https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/main/LICENSE
 Files from:      https://huggingface.co/mlc-ai/Qwen2.5-1.5B-Instruct-q4f32_1-MLC (revision a822ee410075710c9673005eafa017b90136b85d)
 Changes:         Converted and quantized (q4f32_1) to MLC format by the MLC LLM project; not modified further.
-Downloaded:      2026-10-30
+Downloaded:      2026-11-06

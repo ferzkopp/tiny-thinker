@@ -1,0 +1,9 @@
+Model:           TinyLlama 1.1B Instruct (Q4_K_M)
+Original model:  https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0
+Copyright:       TinyLlama project
+License:         Apache License 2.0 (Apache-2.0), see LICENSE in this folder
+                 https://www.apache.org/licenses/LICENSE-2.0
+License text:    https://www.apache.org/licenses/LICENSE-2.0.txt
+Files from:      https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF (revision 52e7645ba7c309695bec7ac98f4f005b139cf465)
+Changes:         Converted to GGUF and quantized (Q4_K_M) by the maintainer of TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF; not modified further.
+Downloaded:      2026-11-06

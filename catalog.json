@@ -17,6 +17,15 @@
       "vocabSize": 49152,
       "weakSystemPrompt": true
     },
+    "tinyllama": {
+      "name": "TinyLlama",
+      "license": "Apache-2.0",
+      "licenseName": "Apache License 2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "copyright": "TinyLlama project",
+      "languages": "Mainly **English**. Other languages are not a reliable choice for this model.",
+      "vocabSize": 32000
+    },
     "qwen2.5": {
       "name": "Qwen2.5",
       "license": "Apache-2.0",
@@ -47,6 +56,17 @@
         "f32": { "id": "SmolLM2-360M-Instruct-q4f32_1-MLC", "lib": "SmolLM2-360M-Instruct-q4f32_1_cs1k-webgpu.wasm", "quant": "q4f32_1", "vramMB": 580 }
       },
       "gguf": { "repo": "bartowski/SmolLM2-360M-Instruct-GGUF", "file": "SmolLM2-360M-Instruct-Q4_K_M.gguf", "quant": "Q4_K_M", "sizeMB": 271, "minRamGB": 2 }
+    },
+    "balanced": {
+      "family": "tinyllama",
+      "label": "TinyLlama 1.1B",
+      "upstream": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+      "contextSize": 2048,
+      "webllm": {
+        "f16": { "id": "TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC", "lib": "TinyLlama-1.1B-Chat-v1.0-q4f16_1_cs1k-webgpu.wasm", "quant": "q4f16_1", "vramMB": 697 },
+        "f32": { "id": "TinyLlama-1.1B-Chat-v1.0-q4f32_1-MLC", "lib": "TinyLlama-1.1B-Chat-v1.0-q4f32_1_cs1k-webgpu.wasm", "quant": "q4f32_1", "vramMB": 840 }
+      },
+      "gguf": { "repo": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF", "file": "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", "quant": "Q4_K_M", "sizeMB": 638, "minRamGB": 3 }
     },
     "medium": {
       "family": "qwen2.5",

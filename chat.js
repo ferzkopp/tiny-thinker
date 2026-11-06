@@ -1,12 +1,13 @@
 // Chat page: loads the chosen engine, streams replies, runs classroom modes and shows help popups.
-import { ENGINES, describeModel, resolveSource, loadConfig, saveConfig, configToQuery, tierInfo, parameterCount } from './models.js?v=1.1';
-import { wireLicenseLinks } from './licenses.js?v=1.1';
-import { getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle, EXPERIMENT_BADGES, experimentBadgeLevel, recordExperimentInteraction } from './experiments.js?v=1.1';
-import { extractTurtleCode, runTurtle, renderTurtleSvg } from './turtle.js?v=1.1';
-import { renderLoadingLessons } from './loading.js?v=1.1';
-import { renderExperimentCards } from './picker.js?v=1.1';
-import { startTour } from './tour.js?v=1.1';
-import { el } from './dom.js?v=1.1';
+import { ENGINES, CATALOG, modelContextSize, describeModel, resolveSource, loadConfig, saveConfig, configToQuery, tierInfo, parameterCount } from './models.js?v=1.2';
+import { detectCapabilities } from './capabilities.js?v=1.2';
+import { wireLicenseLinks } from './licenses.js?v=1.2';
+import { getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle, EXPERIMENT_BADGES, experimentBadgeLevel, recordExperimentInteraction } from './experiments.js?v=1.2';
+import { extractTurtleCode, runTurtle, renderTurtleSvg } from './turtle.js?v=1.2';
+import { renderLoadingLessons } from './loading.js?v=1.2';
+import { renderExperimentCards } from './picker.js?v=1.2';
+import { startTour } from './tour.js?v=1.2';
+import { el } from './dom.js?v=1.2';
 
 // Key name predates the Tiny Thinker name; changing it would discard settings saved in existing browsers.
 const SETTINGS_KEY = 'browserai.settings';
@@ -115,6 +116,7 @@ let config = null;          // Engine/tier/variant being used.
 let engine = null;          // Loaded engine adapter, or null.
 let ready = false;          // A model is loaded and can chat.
 let generating = false;     // A reply is streaming.
+let firstReplyPending = true;
 let history = [];           // Conversation sent to the model as context.
 let runVersion = 0;         // Bumped on every reset so late replies from an old conversation are ignored.
 let activeActivity = null;  // Current mode, or null for Free chat.
@@ -126,6 +128,8 @@ let scrollQueued = false;   // A scroll is already scheduled for the next frame.
 let leaving = false;        // The student already confirmed leaving the page; skip the browser's own warning.
 let loaderTouched = false;  // The student interacted with the loading dialog, so it waits for them.
 let chatTour = null;        // First-run tips for this page, once the model is ready.
+let loadFailure = null;
+let debugReport = null;
 
 // Step buttons that change settings, mapped to their change, so the active one can be highlighted.
 const actionChanges = new WeakMap();
@@ -137,7 +141,7 @@ function modelHelp() {
   const gpu = config.engine === 'webllm';
   const build = gpu ? tier.webllm[config.variant] : tier.gguf;
   const params = parameterCount(config.tier).words;
-  const context = ENGINES[config.engine].contextSize;
+  const context = modelContextSize(config);
   const detail = engineDetail ? `, ${engineDetail}` : '';
   return {
     title: `About this model: ${tier.label} (${config.tier})`,
@@ -537,7 +541,9 @@ function addMessage(role, text = '') {
   const thinking = el('span', { className: 'thinking hidden' }, ...[0, 1, 2].map(() => el('span', { className: 'dot' })));
   thinking.setAttribute('role', 'status');
   thinking.setAttribute('aria-label', 'Thinking');
-  ui.log.append(el('div', { className: `msg ${role}` }, thinking, body, sandbox, meta));
+  const warmup = el('span', { className: 'warmup-note hidden', role: 'note' });
+  const progress = el('span', { className: 'reply-progress' }, thinking, warmup);
+  ui.log.append(el('div', { className: `msg ${role}` }, progress, body, sandbox, meta));
   scrollToNewest(true);
   return {
     append(delta) {
@@ -552,6 +558,10 @@ function addMessage(role, text = '') {
     },
     setThinking(on) {
       thinking.classList.toggle('hidden', !on);
+    },
+    setWarmup(on) {
+      warmup.textContent = on ? 'The first reply can take longer while this model warms up. Later replies usually start faster.' : '';
+      warmup.classList.toggle('hidden', !on);
     },
     setMeta(textValue) {
       meta.textContent = textValue;
@@ -649,17 +659,53 @@ async function renderTurtleWidget(container, initialCode, onCodeEdit) {
  * @param {string} message Explanation and what to do next.
  * @param {{fallback?: boolean, retry?: boolean}} [options] Show the CPU-engine and/or Try again buttons.
  */
-function showError(title, message, { fallback = false, retry = false } = {}) {
+function showError(title, message, { fallback = false, retry = false, diagnostics = false } = {}) {
   ui.errorTitle.textContent = title;
   ui.errorText.textContent = message;
   ui.fallbackBtn.classList.toggle('hidden', !fallback);
   ui.retryBtn.classList.toggle('hidden', !retry);
+  $('debug-info').classList.toggle('hidden', !diagnostics);
   ui.errorPanel.classList.remove('hidden');
 }
 
 /** Hides the error panel. */
 function hideError() {
   ui.errorPanel.classList.add('hidden');
+  $('debug-info').open = false;
+  $('debug-report').textContent = '';
+  loadFailure = null;
+  debugReport = null;
+}
+
+async function collectDebugInfo() {
+  const failure = loadFailure;
+  const capabilities = await detectCapabilities().catch((error) => ({ probeError: String(error?.message || error) }));
+  let storage = null;
+  try {
+    const estimate = await navigator.storage?.estimate();
+    storage = {
+      quotaBytes: estimate?.quota ?? null,
+      usageBytes: estimate?.usage ?? null,
+      persistent: navigator.storage?.persisted ? await navigator.storage.persisted() : null,
+    };
+  } catch (error) {
+    storage = { error: String(error?.message || error) };
+  }
+  return JSON.stringify({
+    appVersion: document.querySelector('.app-version').textContent,
+    capturedAt: new Date().toISOString(),
+    browser: { userAgent: navigator.userAgent, platform: navigator.userAgentData?.platform || navigator.platform, online: navigator.onLine },
+    engines: { webllm: CATALOG.webllm.version, wllama: CATALOG.wllama.version },
+    failure,
+    capabilities,
+    storage,
+    cacheApiAvailable: typeof caches !== 'undefined',
+  }, null, 2);
+}
+
+function getDebugReport() {
+  debugReport ??= collectDebugInfo();
+  return debugReport;
 }
 
 /**
@@ -749,8 +795,9 @@ function estimateTokens(text) {
  * @returns {{role: string, content: string}[]}
  */
 function buildMessages(settings) {
-  const budget = ENGINES[config.engine].contextSize - settings.maxTokens - 64;
-  let used = estimateTokens(settings.systemPrompt);
+  const systemPrompt = `${settings.systemPrompt}\nNever repeat the question.`;
+  const budget = modelContextSize(config) - settings.maxTokens - 64;
+  let used = estimateTokens(systemPrompt);
   const kept = [];
   for (let i = history.length - 1; i >= 0; i--) {
     const cost = estimateTokens(history[i].content);
@@ -762,14 +809,15 @@ function buildMessages(settings) {
   // Small models largely ignore the system role, so the instructions are repeated with the newest question.
   if (tierInfo(config.tier).familyInfo.weakSystemPrompt && kept.length) {
     const last = kept[kept.length - 1];
-    kept[kept.length - 1] = { ...last, content: `${settings.systemPrompt}\n\n${last.content}` };
+    kept[kept.length - 1] = { ...last, content: `${systemPrompt}\n\n${last.content}` };
   }
-  return [{ role: 'system', content: settings.systemPrompt }, ...kept];
+  return [{ role: 'system', content: systemPrompt }, ...kept];
 }
 
 /** Loads the engine and model for `config` behind the loading overlay; on failure, shows the no-model state. */
 async function startEngine() {
   ready = false;
+  firstReplyPending = true;
   engine = null;
   setModelStatus('loading');
   updateControls();
@@ -787,17 +835,17 @@ async function startEngine() {
 
   try {
     if (config.engine === 'webllm') {
-      const { WebLLMEngine } = await import('./engines/webllm-engine.js?v=1.1');
+      const { WebLLMEngine } = await import('./engines/webllm-engine.js?v=1.2');
       engine = new WebLLMEngine();
     } else {
-      const { WllamaEngine } = await import('./engines/wllama-engine.js?v=1.1');
+      const { WllamaEngine } = await import('./engines/wllama-engine.js?v=1.2');
       engine = new WllamaEngine();
     }
     const info = await engine.load(resolveSource(config), ({ progress, text }) => {
       ui.loadProgress.value = Math.min(1, Math.max(0, progress || 0));
       ui.loadText.textContent = text;
       lessons.update(text, progress || 0);
-    }, { contextSize: ENGINES[config.engine].contextSize });
+    }, { contextSize: modelContextSize(config) });
 
     setBadge(info?.detail);
     lessons.finish();
@@ -814,14 +862,25 @@ async function startEngine() {
   } catch (err) {
     console.error(err);
     showLoader(false);
+    try {
+      await engine?.unload();
+    } catch (cleanupError) {
+      console.warn('Releasing the failed model failed', cleanupError);
+    }
     engine = null;
     setModelStatus('unavailable');
     updateControls();
     const gpu = config.engine === 'webllm';
+    const errorName = String(err?.name || 'Error');
+    const errorMessage = String(err?.message || err);
+    loadFailure = { name: errorName, message: errorMessage, setup: { ...config }, model: describeModel(config) };
+    const quotaError = /QuotaExceeded|quota exceeded/i.test(`${errorName} ${errorMessage}`);
     showError('No model available',
-      `The model could not be loaded: ${err?.message || err}. Chatting is turned off until a model loads. `
-      + (gpu ? 'Try the CPU engine, try again, or use Change setup to pick another model.' : 'Check the network connection and try again, or use Change setup to pick a smaller model.'),
-      { fallback: gpu, retry: true });
+      quotaError
+        ? 'The browser could not cache the model because a storage limit was reached. This is not necessarily a lack of GPU memory. Use Done to return to Set up and choose a smaller model, or review this site\'s storage in your browser settings. Clearing site data removes cached models, saved settings and badges; downloads will be needed again. Private browsing or device policies can also limit storage. Chatting is off until a model loads.'
+        : `The model could not be loaded: ${errorMessage}. Chatting is turned off until a model loads. `
+          + (gpu ? 'Try the CPU engine, try again, or use Done to return to Set up and pick a smaller model.' : 'Check the network connection and try again, or use Done to return to Set up and pick a smaller model.'),
+      { fallback: gpu, retry: true, diagnostics: true });
   }
 }
 
@@ -861,6 +920,7 @@ async function send() {
   addMessage('user', text);
   const reply = addMessage('assistant');
   reply.setThinking(true);
+  reply.setWarmup(firstReplyPending);
 
   const settings = currentSettings();
   const version = runVersion;
@@ -882,6 +942,7 @@ async function send() {
       reply.append(delta);
     });
     if (version !== runVersion) return;
+    if (result.finishReason !== 'abort') firstReplyPending = false;
     turn.reply = result.text || '';
     turn.status = result.finishReason || 'complete';
     const notes = [];
@@ -958,6 +1019,7 @@ async function send() {
     reply.setMeta('error');
     showError('Something went wrong', `The reply failed: ${err?.message || err}`, { fallback: config.engine === 'webllm' });
   } finally {
+    reply.setWarmup(false);
     generating = false;
     ui.log.removeAttribute('aria-busy');
     updateControls();
@@ -1008,6 +1070,21 @@ function wireEvents() {
   ui.stop.addEventListener('click', () => engine?.interrupt());
   ui.fallbackBtn.addEventListener('click', switchToCpu);
   ui.retryBtn.addEventListener('click', startEngine);
+  $('debug-info').addEventListener('toggle', async () => {
+    if (!$('debug-info').open || !loadFailure) return;
+    const failure = loadFailure;
+    $('debug-report').textContent = 'Collecting device details...';
+    const report = await getDebugReport();
+    if (failure === loadFailure) $('debug-report').textContent = report;
+  });
+  $('download-debug').addEventListener('click', async () => {
+    if (!loadFailure) return;
+    const report = await getDebugReport();
+    const url = URL.createObjectURL(new Blob([report], { type: 'application/json' }));
+    const link = el('a', { href: url, download: 'tiny-thinker-debug.json' });
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
   // The loader blocks the page until the model is ready; Escape must not dismiss it.
   ui.loadPanel.addEventListener('cancel', (event) => event.preventDefault());
   for (const type of ['pointermove', 'pointerdown', 'wheel', 'touchstart']) {

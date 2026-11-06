@@ -11,9 +11,11 @@ const browser = await chromium.launch({ headless: true });
 const errors = [];
 const fakeEngine = `
 class FakeEngine {
-  async load() {
+  async load(source, onProgress, options) {
     window.__loads = (window.__loads || 0) + 1;
+    window.__loadedModel = { source, options };
     if (window.__failGpu && import.meta.url.includes('webllm')) throw new Error('test GPU unavailable');
+    if (window.__failQuota) throw new DOMException('Quota exceeded', 'QuotaExceededError');
     if (window.__failLoad) throw new Error('test model missing');
     if (window.__holdLoad) await new Promise((resolve) => { window.__releaseLoad = resolve; });
     return { detail: 'test engine' };
@@ -28,14 +30,17 @@ class FakeEngine {
     });
   }
   interrupt() { window.__interrupted = true; window.__reject?.(); }
-  async unload() {}
+  async unload() { window.__unloads = (window.__unloads || 0) + 1; }
 }
 export { FakeEngine as WllamaEngine, FakeEngine as WebLLMEngine };
 `;
 
 /** Marks the first-run tips as finished, so they do not cover controls in tests about other features. */
 async function skipTour(context) {
-  await context.addCookies([{ name: 'tinythinker_tour_v2', value: '6', url: base }]);
+  await context.addCookies([
+    { name: 'tinythinker_tour_v2', value: '6', url: base },
+    { name: 'tinythinker_welcome', value: '1', url: base },
+  ]);
 }
 
 /** Serves the fake engine instead of the real adapters, so tests control timing and replies. */
@@ -168,7 +173,11 @@ try {
   assert.equal(await page.evaluate(() => window.__calls?.length || 0), 0, 'question buttons never auto-send');
   await page.locator('#send').click();
   await page.waitForFunction(() => window.__calls?.length === 1);
+  assert.match(await page.evaluate(() => window.__calls[0].messages[0].content), /\nNever repeat the question\.$/, 'experiment system prompts discourage question echoes');
+  assert.equal(await page.locator('.warmup-note:visible').count(), 1, 'first reply explains model warmup while streaming');
+  assert.match(await page.locator('.warmup-note:visible').innerText(), /first reply can take longer/);
   await finish(page);
+  assert.equal(await page.locator('.warmup-note:visible').count(), 0, 'completed reply automatically hides the warmup note');
   assert.equal(await page.locator('header #guide-badge').isVisible(), true, 'the first earned badge is visible in the persistent chat header');
   assert.match(await page.locator('#guide-badge').textContent(), /Explorer/);
   assert.equal(await page.locator('#guide-badge').evaluate((badge) => badge.classList.contains('promoted')), false);
@@ -183,10 +192,12 @@ try {
   assert.equal(await page.locator('#restore-preset').isVisible(), true);
   await page.locator('#send').click();
   await page.waitForFunction(() => window.__calls?.length === 2);
+  assert.equal(await page.locator('.warmup-note:visible').count(), 0, 'fresh runs reuse the warmed model without repeating the note');
   assert.equal(await page.evaluate(() => window.__calls[1].messages.length), 2);
   assert.match(await page.evaluate(() => window.__calls[1].messages[0].content), /modern assistant/);
   const sentQuestion = await page.evaluate(() => window.__calls[1].messages.at(-1).content);
   assert.ok(sentQuestion.startsWith('You are a concise, modern assistant') && sentQuestion.endsWith(firstPrompt), 'tiny model gets the system prompt mixed into the question');
+  assert.ok(sentQuestion.includes('\nNever repeat the question.\n\n'), 'tiny-model reinforcement includes the no-repeat instruction after a preset change');
   assert.equal(await page.locator('#log .msg.user').last().textContent(), firstPrompt, 'chat shows only the question');
   await finish(page, '<script>not executable</script>');
   assert.equal(await page.locator('header #guide-badge').isVisible(), true);
@@ -392,9 +403,9 @@ try {
   assert.equal(await page.locator('.pick-heading').evaluate((band) => {
     const heading = band.getBoundingClientRect();
     const grid = document.querySelector('#experiment-list').getBoundingClientRect();
-    return Math.abs(heading.width - grid.width * 0.95) < 1 && Math.abs((heading.left + heading.right) - (grid.left + grid.right)) < 1;
-  }), true, 'instruction box is centered at 95% of the grid width');
-  assert.equal(await page.locator('.pick-heading').evaluate((band) => getComputedStyle(band).backgroundColor), 'rgb(255, 248, 231)', 'picker introduction uses yellow instruction styling');
+    return Math.abs(heading.width - grid.width) < 1 && Math.abs(heading.left - grid.left) < 1;
+  }), true, 'picker heading aligns with the full grid width');
+  assert.equal(await page.locator('.pick-heading').evaluate((band) => getComputedStyle(band).backgroundColor), 'rgb(255, 255, 255)', 'picker heading uses a neutral background rather than yellow tip styling');
   const lastUsedCard = page.locator('.experiment-card[data-last-used="true"]');
   assert.match(await lastUsedCard.innerText(), /Fact detective[\s\S]*Last used/i, 'the experiment you came from is marked');
   assert.equal(await page.locator('.experiment-card[aria-current]').count(), 0, 'last used is history, not the current selection');
@@ -514,12 +525,144 @@ try {
   await stateContext.close();
   console.log('PASS blocking loading overlay, header status, no-model disabled state and retry');
 
+  const quotaContext = await browser.newContext();
+  await prepare(quotaContext);
+  await quotaContext.addInitScript(() => { window.__failQuota = true; });
+  const quotaPage = await quotaContext.newPage();
+  quotaPage.on('pageerror', (error) => errors.push(error.message));
+  await quotaPage.goto(`${base}/chat.html?engine=webllm&tier=quality&variant=f16`);
+  await quotaPage.locator('#error-panel').waitFor({ state: 'visible' });
+  assert.match(await quotaPage.locator('#error-text').innerText(), /storage limit[\s\S]*not necessarily[\s\S]*GPU memory/);
+  assert.match(await quotaPage.locator('#error-text').innerText(), /Use Done to return to Set up/);
+  assert.equal(await quotaPage.evaluate(() => window.__unloads), 1, 'failed model resources are released');
+  assert.equal(await quotaPage.locator('#debug-info').evaluate((details) => details.open), false, 'debug collection is opt-in');
+  assert.equal(await quotaPage.locator('#debug-report').textContent(), '', 'no report collected before opening debug info');
+  await quotaPage.locator('#system-prompt').fill('PRIVATE-SYSTEM-PROMPT-SENTINEL');
+  await quotaPage.locator('#debug-info summary').click();
+  await quotaPage.waitForFunction(() => document.querySelector('#debug-report').textContent.startsWith('{'));
+  const quotaReportText = await quotaPage.locator('#debug-report').textContent();
+  const quotaReport = JSON.parse(quotaReportText);
+  assert.equal(quotaReport.failure.name, 'QuotaExceededError');
+  assert.equal(quotaReport.failure.setup.tier, 'quality');
+  assert.ok(quotaReport.browser.userAgent);
+  assert.ok(quotaReport.capabilities.webgpu);
+  assert.ok(Object.hasOwn(quotaReport.storage, 'quotaBytes'));
+  assert.equal(quotaReportText.includes('PRIVATE-SYSTEM-PROMPT-SENTINEL'), false, 'debug report excludes system prompts');
+  for (const key of ['history', 'turns', 'notes', 'systemPrompt']) assert.equal(Object.hasOwn(quotaReport, key), false);
+  const debugDownload = quotaPage.waitForEvent('download');
+  await quotaPage.locator('#download-debug').click();
+  assert.equal((await debugDownload).suggestedFilename(), 'tiny-thinker-debug.json');
+  await quotaPage.setViewportSize({ width: 375, height: 812 });
+  await noOverflow(quotaPage);
+  await quotaPage.screenshot({ path: 'test-results/quota-debug-mobile.png' });
+  await quotaPage.evaluate(() => { window.__failQuota = false; });
+  await quotaPage.locator('#retry-btn').click();
+  await ready(quotaPage);
+  assert.equal(await quotaPage.locator('#error-panel').isVisible(), false, 'retry recovers from the quota simulation');
+  assert.equal(await quotaPage.locator('#debug-report').textContent(), '', 'retry clears old diagnostics');
+  await quotaContext.close();
+  console.log('PASS quota-specific recovery, failed-engine cleanup and optional private debug download');
+
+  const tinyllamaContext = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+  await prepare(tinyllamaContext);
+  const tinyllamaPage = await tinyllamaContext.newPage();
+  tinyllamaPage.on('pageerror', (error) => errors.push(error.message));
+  tinyllamaPage.on('dialog', (dialog) => dialog.accept());
+  await tinyllamaPage.goto(`${base}/index.html?manual=1`);
+  await tinyllamaPage.locator('#override').waitFor({ state: 'visible' });
+  await tinyllamaPage.locator('input[name="engine"][value="wllama"]').check();
+  await tinyllamaPage.locator('input[name="tier"][value="balanced"]').check();
+  assert.match(await tinyllamaPage.locator('#model-options').innerText(), /TinyLlama 1\.1B/);
+  await noOverflow(tinyllamaPage);
+  await tinyllamaPage.screenshot({ path: 'test-results/tinyllama-picker.png', fullPage: true });
+  await tinyllamaPage.locator('#override-submit').click();
+  await tinyllamaPage.waitForURL('**/experiments.html?**');
+  assert.equal(new URL(tinyllamaPage.url()).searchParams.get('tier'), 'balanced');
+  await tinyllamaPage.locator('#free-chat').click();
+  await ready(tinyllamaPage);
+  assert.equal(await tinyllamaPage.evaluate(() => window.__loadedModel.options.contextSize), 2048);
+  assert.match(await tinyllamaPage.evaluate(() => window.__loadedModel.source.file), /tinyllama.*Q4_K_M/);
+  for (const variant of ['f16', 'f32']) {
+    await tinyllamaPage.goto(`${base}/chat.html?engine=webllm&tier=balanced&variant=${variant}`);
+    await ready(tinyllamaPage);
+    assert.equal(await tinyllamaPage.evaluate(() => window.__loadedModel.options.contextSize), 2048);
+    assert.equal(await tinyllamaPage.evaluate(() => window.__loadedModel.source.id), `TinyLlama-1.1B-Chat-v1.0-q4${variant}_1-MLC`);
+    await tinyllamaPage.locator('[data-help="model"]').click();
+    assert.match(await tinyllamaPage.locator('#setting-help-facts').innerText(), /2,048 tokens/);
+    await tinyllamaPage.keyboard.press('Escape');
+    if (variant === 'f16') {
+      for (let turn = 0; turn < 5; turn += 1) {
+        const question = `Question ${turn}: ${'word '.repeat(240)}`.trim();
+        await tinyllamaPage.locator('#input').fill(question);
+        await tinyllamaPage.locator('#send').click();
+        await tinyllamaPage.waitForFunction((count) => window.__calls?.length === count, turn + 1);
+        assert.match(await tinyllamaPage.evaluate(() => window.__calls.at(-1).messages[0].content), /\nNever repeat the question\.$/, 'native system prompts also receive the no-repeat instruction');
+        assert.equal(await tinyllamaPage.evaluate(() => window.__calls.at(-1).messages.at(-1).content), question, 'TinyLlama uses its native system role without repeating instructions');
+        await finish(tinyllamaPage, 'Reply '.repeat(200));
+      }
+      const messages = await tinyllamaPage.evaluate(() => window.__calls.at(-1).messages);
+      assert.ok(messages.length < 10, 'long TinyLlama conversations drop old turns');
+      const tokens = messages.reduce((total, message) => total + Math.ceil(message.content.length / 3) + 4, 0);
+      assert.ok(tokens + 256 + 64 <= 2048, 'history and reply budget fit TinyLlama context');
+    }
+  }
+  await tinyllamaContext.addInitScript(() => { window.__failGpu = true; });
+  await tinyllamaPage.goto(`${base}/chat.html?engine=webllm&tier=balanced&variant=f16`);
+  await tinyllamaPage.locator('#fallback-btn').waitFor({ state: 'visible' });
+  await tinyllamaPage.locator('#fallback-btn').click();
+  await ready(tinyllamaPage);
+  assert.equal(new URL(tinyllamaPage.url()).searchParams.get('engine'), 'wllama');
+  assert.equal(new URL(tinyllamaPage.url()).searchParams.get('tier'), 'balanced');
+  assert.equal(await tinyllamaPage.evaluate(() => window.__loadedModel.options.contextSize), 2048);
+  await tinyllamaPage.setViewportSize({ width: 375, height: 812 });
+  await tinyllamaPage.locator('[data-help="model"]').click();
+  await noOverflow(tinyllamaPage);
+  await tinyllamaPage.screenshot({ path: 'test-results/tinyllama-mobile.png', fullPage: true });
+  await tinyllamaContext.close();
+  console.log('PASS TinyLlama manual selection, GPU variants, native system role, 2K trimming and CPU fallback');
+
   const coldContext = await browser.newContext();
   await prepare(coldContext);
   const cold = await coldContext.newPage();
   await cold.goto(`${base}/chat.html?experiment=creativity`);
   await cold.waitForURL('**/index.html?experiment=creativity');
   await cold.locator('#go-now').waitFor({ state: 'visible' });
+  const recommendations = await cold.evaluate(async () => {
+    const { recommend, incompatibility, CATALOG } = await import('./models.js?v=1.2');
+    const caps = { wasm: true, wasmSimd: true, secureContext: true, webgpu: { available: true, f16: true, maxBufferMB: 2048 }, deviceMemoryGB: 8, mobile: false, cores: 8, threads: true, storageFreeMB: 10000 };
+    const mediumHeadroom = CATALOG.tiers.medium.webllm.f16.vramMB * 2 + 256;
+    return {
+      tiers: [recommend(caps), recommend({ ...caps, deviceMemoryGB: null }), recommend({ ...caps, storageFreeMB: null }), recommend({ ...caps, webgpu: { available: true, f16: false } }), recommend({ ...caps, mobile: true })].map((setup) => setup.tier),
+      boundary: [recommend({ ...caps, storageFreeMB: mediumHeadroom }), recommend({ ...caps, storageFreeMB: mediumHeadroom - 1 })].map((setup) => setup.tier),
+      noStorage: recommend({ ...caps, storageFreeMB: 100 }),
+      manualQuality: incompatibility('webllm', 'quality', caps),
+      cpuUnknown: recommend({ ...caps, webgpu: { available: false }, deviceMemoryGB: null }).tier,
+      unknownMemory: [
+        { cores: 32, storageFreeMB: 9982 },
+        { deviceMemoryGB: 2 },
+        { mobile: true },
+        { cores: 4 },
+        { webgpu: { ...caps.webgpu, maxBufferMB: 1023 } },
+        { webgpu: { ...caps.webgpu, maxBufferMB: 1024 } },
+        { webgpu: { available: true, f16: true } },
+        { webgpu: { ...caps.webgpu, f16: false } },
+        { storageFreeMB: null },
+        { storageFreeMB: mediumHeadroom - 1 },
+      ].map((overrides) => recommend({ ...caps, deviceMemoryGB: null, ...overrides }).tier),
+    };
+  });
+  assert.deepEqual(recommendations.tiers, ['medium', 'medium', 'small', 'small', 'small']);
+  assert.deepEqual(recommendations.unknownMemory, ['medium', 'tiny', 'tiny', 'tiny', 'tiny', 'medium', 'tiny', 'tiny', 'small', 'small'], 'capable desktops can use medium without reported RAM; weaker or uncertain devices retain smaller defaults');
+  assert.deepEqual(recommendations.boundary, ['medium', 'small'], 'automatic selection reserves storage headroom');
+  assert.equal(recommendations.noStorage, null, 'no recommendation when even tiny lacks headroom');
+  assert.equal(recommendations.manualQuality, '', 'quality remains available for manual selection');
+  assert.equal(recommendations.cpuUnknown, 'small', 'unknown desktop CPU memory defaults conservatively');
+  assert.equal(await cold.locator('.datacenter-title img').evaluate((image) => image.complete && image.naturalWidth > 0), true, 'datacenter icon loads');
+  assert.equal(await cold.locator('.setup-results .datacenter-intro').count(), 0, 'datacenter explanation is not duplicated in the results');
+  assert.match(await cold.locator('.setup-sidebar').innerText(), /mini datacenter/);
+  assert.match(await cold.locator('#check-reasons').innerText(), /Hugging Face, an online library/);
+  assert.match(await cold.locator('#checks').innerText(), /Fast browser math /);
+  console.log('PASS capable-desktop recommendations, smaller-device safeguards, storage headroom and datacenter copy');
   await cold.keyboard.press('Shift');
   assert.equal(await cold.locator('#countdown-text').innerText(), 'Paused.', 'a key press pauses the countdown');
   await cold.locator('#go-now').click();
@@ -536,6 +679,8 @@ try {
   await cold.waitForURL('**/experiments.html?**');
   await cold.locator('.experiment-card').first().waitFor();
   assert.equal(await cold.locator('.experiment-card[aria-current]').count(), 0);
+  assert.equal(await cold.locator('.pick-heading').evaluate((heading) => getComputedStyle(heading, '::after').content), 'none', 'picker heading has no tip pointer');
+  assert.equal(await cold.locator('.setup-summary').evaluate((model) => Boolean(document.querySelector('.free-chat-panel').compareDocumentPosition(model) & Node.DOCUMENT_POSITION_FOLLOWING)), true, 'model details and Change setup follow all activities and free chat');
   await cold.screenshot({ path: 'test-results/experiments.png', fullPage: true });
   await cold.getByRole('link', { name: /^3\. Creativity dial/ }).click();
   await cold.waitForURL('**/chat.html?**');
@@ -559,6 +704,7 @@ try {
   await tourContext.addCookies([
     { name: 'tinythinker_tour_v2', value: '6', url: base },
     { name: 'tinythinker_tour', value: '5', url: base },
+    { name: 'tinythinker_welcome', value: '1', url: base },
     { name: 'tinythinker_dev_unrelated', value: 'keep', url: base },
   ]);
   const first = await tourContext.newPage();
@@ -567,25 +713,44 @@ try {
   await first.addInitScript(() => { window.__holdLoad = true; });
   const tip = first.locator('.tour');
   await first.goto(`${base}/index.html?resetCookies=1`);
-  await tip.waitFor({ state: 'visible' });
+  const welcomeDialog = first.locator('#first-welcome');
+  await welcomeDialog.waitFor({ state: 'visible' });
+  assert.equal(await first.locator('.tour:not(.hidden)').count(), 0, 'welcome appears before any tip');
+  assert.equal(await welcomeDialog.locator('button').count(), 1, 'welcome has one action');
+  assert.equal(await first.locator('#welcome-go').evaluate((button) => button === document.activeElement), true, 'welcome action receives keyboard focus');
+  assert.equal(await welcomeDialog.locator('img').evaluate((image) => image.complete && image.naturalWidth > 0), true, 'welcome character loads');
+  await first.screenshot({ path: 'test-results/first-welcome.png' });
+  await first.setViewportSize({ width: 375, height: 812 });
+  await noOverflow(first);
+  await first.locator('#welcome-go').scrollIntoViewIfNeeded();
+  await first.screenshot({ path: 'test-results/first-welcome-mobile.png' });
+  await first.setViewportSize({ width: 1280, height: 800 });
   assert.equal(new URL(first.url()).searchParams.has('resetCookies'), false, 'cookie reset is consumed once');
   assert.equal(await first.evaluate(() => localStorage.getItem('tinythinker.experiment-progress')), null, 'development reset also clears badges');
   assert.equal(await first.evaluate(() => localStorage.getItem('tinythinker.dev-reset-sentinel')), 'keep', 'other saved data survives the reset');
   const resetCookies = await tourContext.cookies();
-  assert.equal(resetCookies.some((cookie) => ['tinythinker_tour_v2', 'tinythinker_tour'].includes(cookie.name)), false, 'current and legacy tour cookies are cleared');
+  assert.equal(resetCookies.some((cookie) => ['tinythinker_tour_v2', 'tinythinker_tour', 'tinythinker_welcome'].includes(cookie.name)), false, 'welcome and tour cookies are cleared');
   assert.equal(resetCookies.find((cookie) => cookie.name === 'tinythinker_dev_unrelated')?.value, 'keep', 'unrelated cookies are preserved');
+  await first.locator('#welcome-go').click();
+  await tip.waitFor({ state: 'visible' });
+  assert.equal((await tourContext.cookies()).find((cookie) => cookie.name === 'tinythinker_welcome')?.value, '1', 'dismissal remembers the welcome');
   assert.match(await first.locator('.journey li').last().innerText(), /Chat and learn/);
-  assert.match(await first.locator('.welcome').innerText(), /chat and learn/);
+  assert.match(await first.locator('.welcome').innerText(), /learn to question AI/);
   assert.notEqual(await first.locator('.journey [aria-current="step"]').evaluate((step) => getComputedStyle(step).backgroundColor), await first.locator('#go-now').evaluate((button) => getComputedStyle(button).backgroundColor), 'navigation does not reuse action blue');
   assert.equal(await first.locator('.tagline').evaluate((badge) => getComputedStyle(badge).color), 'rgb(54, 86, 127)', 'tagline uses the shared blue header palette');
   assert.match(await first.locator('header.top').evaluate((header) => getComputedStyle(header).backgroundImage), /repeating-linear-gradient/, 'header has subtle diagonal stripes');
-  assert.match(await tip.innerText(), /Tip 1 of 6[\s\S]*Your instruction panels/i);
+  assert.match(await tip.innerText(), /Tip 1 of 6[\s\S]*Your path: 1, 2, 3/i);
   const introTip = await tip.boundingBox();
-  const instructionPanel = await first.locator('.setup-sidebar .setup-checks').boundingBox();
-  assert.ok(introTip.y + introTip.height < instructionPanel.y, 'intro tip sits above the instruction panel without overlap');
-  assert.equal(await first.locator('.setup-sidebar .setup-checks').evaluate((panel) => panel.classList.contains('tour-target')), true, 'intro tip points to the yellow instruction panel');
+  const journey = await first.locator('.journey').boundingBox();
+  assert.ok(introTip.y >= journey.y + journey.height, 'flow tip sits below the step bar without overlap');
+  assert.equal(await first.locator('.journey').evaluate((panel) => panel.classList.contains('tour-target')), true, 'intro tip points to the step bar');
+  assert.match(await tip.innerText(), /yellow instruction panels/);
   await first.screenshot({ path: 'test-results/tour-1-instructions.png' });
   await first.setViewportSize({ width: 375, height: 812 });
+  await first.waitForFunction(() => {
+    const rect = document.querySelector('.tour').getBoundingClientRect();
+    return rect.left >= 0 && rect.right <= innerWidth;
+  });
   await noOverflow(first);
   assert.equal(await first.locator('.journey li').evaluateAll((steps) => {
     const rects = steps.map((step) => step.getBoundingClientRect());
@@ -600,21 +765,27 @@ try {
   await first.locator('.tour-next').click();
   await first.waitForFunction(() => document.querySelector('.tour-count').textContent === 'Tip 2 of 6');
   assert.match(await tip.innerText(), /Tip 2 of 6[\s\S]*Your device is ready/i);
-  const setupTip = await tip.boundingBox();
   const setupContent = await first.locator('.setup-results').boundingBox();
-  const explanations = await first.locator('.setup-checks').boundingBox();
+  const explanations = await first.locator('.setup-sidebar .setup-checks').boundingBox();
   assert.ok(Math.abs(explanations.y - setupContent.y) < 1, 'explanations align horizontally with the device results');
-  assert.ok(setupTip.x + setupTip.width <= setupContent.x, 'first tip sits left of setup content without overlap');
+  const recommendedBox = await first.locator('#result').boundingBox();
+  const recommendedHelp = await first.locator('#recommendation-help .panel').boundingBox();
+  assert.equal(await tip.evaluate((box) => getComputedStyle(box).position), 'fixed', 'setup tip floats without occupying a content row');
+  assert.equal(await first.locator('#result').evaluate((box) => getComputedStyle(box).gridRowStart), '3', 'recommendation retains its normal grid row while the tip is open');
+  assert.ok(Math.abs(recommendedHelp.y - recommendedBox.y) < 1 && Math.abs(recommendedHelp.height - recommendedBox.height) < 1, 'recommendation explanation and setup align with equal heights');
+  assert.ok(recommendedHelp.x + recommendedHelp.width < recommendedBox.x, 'recommendation explanation stays beside the setup');
   assert.equal(await first.locator('.setup-sidebar #check-reasons li').count(), 7, 'sidebar explains all seven checks');
   assert.equal(await first.locator('.setup-content #checks li').count(), 7, 'main column contains actual device results');
   assert.equal(await first.locator('#checks .why').count(), 0, 'explanations do not lengthen the results');
+  assert.equal(await first.locator('#recommendation-help #recommendation-explain').count(), 1, 'recommended setup explanation lives in the yellow sidebar');
+  assert.equal(await first.locator('#result #recommendation-explain').count(), 0, 'recommendation does not duplicate the sidebar explanation');
   assert.match(await first.locator('#checks li').first().innerText(), /Local address: trusted by the browser/);
   assert.equal(await first.locator('#check-reasons').evaluate((list) => getComputedStyle(list).fontSize), '12px', 'sidebar explanations use compact text');
   await first.waitForFunction(() => {
     const arrow = document.querySelector('.tour-arrow').getBoundingClientRect();
     const button = document.querySelector('#go-now').getBoundingClientRect();
     const box = document.querySelector('.tour').getBoundingClientRect();
-    return Math.abs((arrow.top + arrow.bottom) / 2 - (button.top + button.bottom) / 2) < 2 && arrow.right > box.right;
+    return Math.abs((arrow.left + arrow.right) / 2 - (button.left + button.right) / 2) < 2 && arrow.bottom > box.bottom;
   });
   assert.deepEqual(await tip.evaluate((box) => {
     const style = getComputedStyle(box);
@@ -628,38 +799,49 @@ try {
   await first.locator('#change').click();
   await first.locator('#override').waitFor({ state: 'visible' });
   assert.equal(await first.locator('#result').isVisible(), false, 'Change hides the recommended setup');
+  assert.equal(await first.locator('#recommendation-help').isVisible(), false, 'Change hides the recommendation explanation');
   assert.equal(await first.locator('#override-help .panel').isVisible(), true, 'Change shows the sidebar explanation');
   assert.equal(await first.locator('#override .panel-intro').count(), 0, 'picker does not duplicate its sidebar explanation');
   await first.waitForFunction(() => {
     const arrow = document.querySelector('.tour-arrow').getBoundingClientRect();
     const button = document.querySelector('#override-submit').getBoundingClientRect();
-    return Math.abs((arrow.top + arrow.bottom) / 2 - (button.top + button.bottom) / 2) < 2;
+    return Math.abs((arrow.left + arrow.right) / 2 - (button.left + button.right) / 2) < 2;
   });
   const picker = await first.locator('#override').boundingBox();
   const pickerHelp = await first.locator('#override-help .panel').boundingBox();
   assert.ok(Math.abs(pickerHelp.y - picker.y) < 1 && pickerHelp.x + pickerHelp.width < picker.x, 'manual explanation aligns beside the picker');
-  const deviceResults = await first.locator('.setup-results').boundingBox();
-  assert.ok(Math.abs(picker.y - deviceResults.y - deviceResults.height - 16) < 1, 'picker follows device results with the normal gap');
+  assert.equal(await tip.evaluate((box) => getComputedStyle(box).position), 'fixed', 'tip continues floating after switching to manual setup');
   await first.goto(`${base}/index.html?manual=1`);
   await first.locator('#override').waitFor({ state: 'visible' });
+  assert.equal(await welcomeDialog.isVisible(), false, 'welcome does not return after dismissal');
   assert.equal(await first.locator('#result').isVisible(), false, 'direct manual setup also hides the recommendation');
   assert.equal(await first.locator('#override-help .panel').isVisible(), true, 'direct manual setup shows the sidebar explanation');
   await first.goto(`${base}/index.html`);
   await tip.waitFor({ state: 'visible' });
   await first.setViewportSize({ width: 375, height: 812 });
-  const mobileTip = await tip.boundingBox();
-  const mobileContent = await first.locator('.setup-content').boundingBox();
-  assert.ok(mobileTip.y + mobileTip.height <= mobileContent.y, 'mobile tip stacks above setup content without overlap');
+  await first.waitForFunction(() => {
+    const box = document.querySelector('.tour').getBoundingClientRect();
+    return box.left >= 0 && box.right <= innerWidth;
+  });
+  assert.equal(await tip.evaluate((box) => getComputedStyle(box).position), 'fixed', 'mobile tip floats over the page instead of splitting its content');
+  await first.waitForFunction(() => {
+    const button = document.querySelector('#go-now').getBoundingClientRect();
+    return button.top >= 0 && button.bottom <= innerHeight;
+  });
   await noOverflow(first);
   await first.screenshot({ path: 'test-results/tour-1-setup-mobile.png' });
   await first.setViewportSize({ width: 1280, height: 800 });
+  const recommendationBeforeDismissal = await first.locator('#result').evaluate((box) => ({ top: box.offsetTop, height: box.offsetHeight }));
   await first.locator('.tour-next').click();
+  assert.deepEqual(await first.locator('#result').evaluate((box) => ({ top: box.offsetTop, height: box.offsetHeight })), recommendationBeforeDismissal, 'dismissing the tip does not move or resize the recommendation');
   assert.equal(await tip.isVisible(), false, 'Got it dismisses the setup sidebar');
   assert.equal(await first.locator('main').evaluate((main) => main.classList.contains('setup-tour-active')), false, 'dismissal restores the normal setup layout');
   await first.locator('#go-now').click();
   await first.waitForURL('**/experiments.html?**');
   await tip.waitFor({ state: 'visible' });
   assert.match(await tip.innerText(), /Tip 3 of 6[\s\S]*Choose an experiment/i);
+  assert.equal(await first.locator('.tour:visible').count(), 1, 'picker has one floating tour tip');
+  assert.notEqual(await first.locator('.pick-heading').evaluate((heading) => getComputedStyle(heading).backgroundColor), await tip.evaluate((box) => getComputedStyle(box).backgroundColor), 'permanent heading does not duplicate the yellow tip styling');
   assert.equal(await tip.evaluate((box) => getComputedStyle(box).backgroundColor), 'rgb(255, 248, 231)', 'experiment tip uses yellow instruction styling');
   assert.equal(await tip.locator('.tour-next').evaluate((button) => getComputedStyle(button).backgroundColor), 'rgb(224, 161, 0)', 'tip acknowledgement matches its yellow panel');
   assert.equal(await first.locator('.experiment-card.tour-target').evaluate((card) => getComputedStyle(card).backgroundColor), 'rgb(240, 245, 255)', 'tour-highlighted experiment is blue');
@@ -705,6 +887,7 @@ try {
   await prepare(skipContext, { tour: true });
   const skipper = await skipContext.newPage();
   await skipper.goto(`${base}/index.html`);
+  await skipper.locator('#welcome-go').click();
   await skipper.locator('.tour-skip').click();
   assert.equal((await skipContext.cookies()).find((cookie) => cookie.name === 'tinythinker_tour_v2')?.value, '6', 'Skip tips ends the tour');
   await skipContext.clearCookies({ name: 'tinythinker_tour_v2' });
@@ -712,7 +895,7 @@ try {
   await skipper.goto(`${base}/index.html?manual=1`);
   await skipper.locator('#override').waitFor({ state: 'visible' });
   assert.equal(await skipper.locator('.tour:not(.hidden)').count(), 0, 'completed older tours do not restart after adding a tip');
-  assert.equal(await skipper.evaluate(async () => (await import('./tour.js?v=1.1')).tourProgress()), 6, 'older completed progress maps to the new final step');
+  assert.equal(await skipper.evaluate(async () => (await import('./tour.js?v=1.2')).tourProgress()), 6, 'older completed progress maps to the new final step');
   await skipContext.close();
   console.log('PASS first-run tips across setup, picker and chat; interactive loader; cookie stops repeats');
   await cold.goto(`${base}/licenses.html`);

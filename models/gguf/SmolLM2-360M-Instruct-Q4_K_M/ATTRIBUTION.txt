@@ -6,4 +6,4 @@ License:         Apache License 2.0 (Apache-2.0), see LICENSE in this folder
 License text:    https://www.apache.org/licenses/LICENSE-2.0.txt
 Files from:      https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF (revision 7be6f65f1db715fe5dc5a4634c0d459b4eed42ec)
 Changes:         Converted to GGUF and quantized (Q4_K_M) by the maintainer of bartowski/SmolLM2-360M-Instruct-GGUF; not modified further.
-Downloaded:      2026-10-30
+Downloaded:      2026-11-06

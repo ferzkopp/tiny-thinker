@@ -1,6 +1,6 @@
 {
   "classroom": {
-    "tiers": ["tiny", "small", "medium", "quality"],
+    "tiers": ["tiny", "small", "balanced", "medium", "quality"],
     "engines": ["webllm", "gguf"],
     "variants": ["f16", "f32"],
     "revisions": {
@@ -10,6 +10,9 @@
       "mlc-ai/SmolLM2-360M-Instruct-q4f32_1-MLC": "1e6b2ca3684e2bc8a6d39eb36e8d6cd51eb12bda",
       "bartowski/SmolLM2-135M-Instruct-GGUF": "09816acd5d99df7be770d85ea30822623dab342c",
       "bartowski/SmolLM2-360M-Instruct-GGUF": "7be6f65f1db715fe5dc5a4634c0d459b4eed42ec",
+      "mlc-ai/TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC": "aa4e41dd1861bb2469f9ddfb8fa3054b857a00ed",
+      "mlc-ai/TinyLlama-1.1B-Chat-v1.0-q4f32_1-MLC": "c414459233920b88c45096e8c6b274b0f0e607c5",
+      "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF": "52e7645ba7c309695bec7ac98f4f005b139cf465",
       "mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC": "32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad",
       "mlc-ai/Qwen2.5-0.5B-Instruct-q4f32_1-MLC": "8e6ec5f417c7d0e1414703ef619b8a24686e3ab0",
       "Qwen/Qwen2.5-0.5B-Instruct-GGUF": "9217f5db79a29953eb74d5343926648285ec7e67",
@@ -20,6 +23,7 @@
     "ggufSizes": {
       "SmolLM2-135M-Instruct-Q4_K_M.gguf": 105454432,
       "SmolLM2-360M-Instruct-Q4_K_M.gguf": 270590880,
+      "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf": 668788096,
       "qwen2.5-0.5b-instruct-q4_k_m.gguf": 491400032,
       "qwen2.5-1.5b-instruct-q4_k_m.gguf": 1117320736
     },
@@ -28,6 +32,8 @@
       "SmolLM2-135M-Instruct-q0f32_cs1k-webgpu.wasm": "cd367573bec87cbef4e109f0c14e8eed27b54cdbf9b341cb1b479b507a7e61b1",
       "SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu.wasm": "bdb36e6719d7c22b086360456651233afe35c494407ccf1b52450a6ad07b6d45",
       "SmolLM2-360M-Instruct-q4f32_1_cs1k-webgpu.wasm": "f7a7faecbf17327e66d5cef5a013eaec6ba667de929280078c87beed1a4eb868",
+      "TinyLlama-1.1B-Chat-v1.0-q4f16_1_cs1k-webgpu.wasm": "4f02e36febab45bb8ce870788809252e18f842adc791451a85696ea5f0b7046e",
+      "TinyLlama-1.1B-Chat-v1.0-q4f32_1_cs1k-webgpu.wasm": "a65e23989c4e9df622ad98341f59ec3441d8606c69b8d7a22425032c6aacae61",
       "Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm": "2a203aa9280044fd4b6d279c2c8bf3ef11e9e450435b973ef494e5d461e4f2dd",
       "Qwen2-0.5B-Instruct-q4f32_1_cs1k-webgpu.wasm": "6ba8b8f85be2e86f7ca16454d199bfc83e672ec010f4f6e265240c22505f5829",
       "Qwen2-1.5B-Instruct-q4f16_1_cs1k-webgpu.wasm": "155ef7359c859f7d646f4c5adc548d779475da3e3196701c7a9d4b82827559a8",

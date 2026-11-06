@@ -21,7 +21,7 @@ A static HTML/JavaScript playground with no build step or application backend. A
 
 ## After cloning
 
-Requirements: Python 3.8+ for the helper scripts, a modern browser with WebAssembly SIMD, internet access for downloads, and about 5.5 GB of free disk space for the classroom model set. No Python packages are needed. WebGPU is optional; the CPU engine is the fallback.
+Requirements: Python 3.8+ for the helper scripts, a modern browser with WebAssembly SIMD, internet access for downloads, and about 8 GB of free disk space for the classroom model set. No Python packages are needed. WebGPU is optional; the CPU engine is the fallback.
 
 From the cloned repository folder:
 
@@ -33,7 +33,7 @@ python serve.py --isolate
 
 Open http://localhost:8000. Opening HTML directly with `file://` does not work. Use `--port 8001` if the default port is busy.
 
-The classroom profile prepares all twelve builds: SmolLM2 135M and 360M (English) and Qwen2.5 0.5B and 1.5B (multilingual), each with a CPU GGUF build and f16/f32 WebGPU builds. The download totals about **5.3 GB** (SmolLM2 about 1.36 GB, Qwen2.5 about 3.97 GB). Each student's browser downloads only the model it uses, not the entire set.
+The classroom profile prepares all fifteen builds: SmolLM2 135M and 360M (English), TinyLlama 1.1B Chat v1.0 (English), and Qwen2.5 0.5B and 1.5B (multilingual), each with a CPU GGUF build and f16/f32 WebGPU builds. The download totals about **7.3 GB** (SmolLM2 about 1.36 GB, TinyLlama about 1.93 GB, Qwen2.5 about 3.97 GB). Each student's browser downloads only the model it uses, not the entire set.
 
 To prepare without downloading every model, you can also serve a fresh clone immediately. Missing model builds load from Hugging Face when selected.
 
@@ -69,13 +69,15 @@ Tiny Thinker guides you through three steps, shown as a step bar at the top of e
 
 While the model loads, a compact window shows progress, short explanations of loading time and megabytes, and experiment and model summaries. The notes explain caching and the difference between stored files and working memory. Successful loads stay visible for at least four seconds, including cached models; errors appear immediately. Moving the pointer inside the window, clicking or tapping, scrolling, or pressing a key other than Escape keeps it open until **Start chatting** is pressed. Automatic keyboard focus alone does not count as an interaction.
 
-On a first visit, six short tips explain the yellow instruction panels, then point at the next thing to click: continue from setup, pick an experiment, choose a question, press Send, and go back to try another experiment. **Skip tips** ends them early. A cookie remembers how far you got, so they do not return on later visits, and the setup page only counts down to the next step on later visits.
+On a first visit to setup, a yellow welcome dialog introduces Tiny Thinker and explains why checking and questioning AI matters. **Let's go** dismisses it; a cookie remembers that dismissal for a year. Then six short tips point at the three-step path and explain the yellow instruction panels, followed by the next things to click: continue from setup, pick an experiment, choose a question, press Send, and go back to try another experiment. **Skip tips** ends them early. A separate cookie remembers how far you got, so the tips do not return on later visits, and the setup page only counts down to the next step on later visits. **Your datacenter** shows what this device can run; yellow sidebars explain the checks and recommended engine and model.
 
 Inside the chat, the yellow **Choose a new experiment** action opens the picker without leaving the loaded chat page. If work could be lost, an inline, non-modal confirmation offers **Keep chatting** or **Leave experiment**. The chat stays usable; confirming stops any active reply and clears the conversation, draft and notes. Opening another experiment starts a fresh conversation with its preset, keeping the model loaded in memory. Switching to free chat also reuses the loaded model. Changing the model setup or reloading the page still initializes the engine again. Reloading or closing the tab can still trigger the browser's own warning about unsaved work.
 
 Each experiment earns an **Explorer** badge after one completed chat reply, **Experimenter** after two, and **Investigator** after five. The current level appears immediately in the chat header and on experiment cards. Completed replies accumulate across fresh runs and return visits in this browser's local storage. Visits alone, failed or stopped replies, empty replies, and automatic repair attempts do not earn extra progress. No conversation text is stored with badge progress; clearing site data removes the badges. See the [Classroom Guide](CLASSROOM.md#experiment-badges) for the full level logic and shared-device considerations.
 
 Share an activity using a link such as [Shakespeare remix](https://www.ferzkopp.net/tiny-thinker/index.html?experiment=shakespeare) or [Turtle artist](https://www.ferzkopp.net/tiny-thinker/index.html?experiment=turtle). The device check skips the experiment list and carries the activity through to chat; links contain no conversation text.
+
+The first reply after loading a model can take longer while the engine warms up. A note beside the thinking dots explains this and stays until the reply finishes, stops or fails. After the first completed reply, it does not repeat for later replies, fresh runs or experiment changes that reuse the loaded model.
 
 ### Find your way around
 
@@ -115,16 +117,21 @@ Small models can produce incorrect shapes or angles even when the code runs. Che
 - `experiments.html` lists the experiments and opens the chat with the one you pick.
 - `chat.html` loads the chosen engine and streams replies.
 
+Automatic setup favours a reliable first load rather than the largest model. It never selects **quality** automatically; **Change** still offers it. When RAM is unreported, a desktop with at least 8 CPU threads, f16 WebGPU and a buffer limit of at least 1 GB can start with **medium** (Qwen2.5 0.5B). Other devices with unreported memory retain the 2 GB fallback. These GPU signals are a capability heuristic, not a measurement of available RAM or GPU memory. Unknown storage and f32 GPUs use smaller starting models, and automatic choices require twice the catalog size estimate plus 256 MB of reported free browser storage. GPU memory figures are a conservative storage-budget proxy, not measured download sizes. Browser estimates do not reveal all cache limits or available GPU memory, so loading can still fail.
+
 | Tier | Model (Apache 2.0) | WebLLM 0.2.87 (WebGPU) | wllama 3.8.1 (CPU / WASM) |
 |---|---|---|---|
 | tiny | SmolLM2 135M | q0f16 / q0f32 | GGUF Q4_K_M |
 | small | SmolLM2 360M | q4f16_1 / q4f32_1 | GGUF Q4_K_M |
+| balanced | TinyLlama 1.1B Chat v1.0 | q4f16_1 / q4f32_1 | GGUF Q4_K_M |
 | medium | Qwen2.5 0.5B | q4f16_1 / q4f32_1 | GGUF Q4_K_M |
 | quality | Qwen2.5 1.5B | q4f16_1 / q4f32_1 | GGUF Q4_K_M |
 
 WebLLM uses the f16 build when the GPU supports `shader-f16`, otherwise the f32 build. The model list lives in `catalog.json`. JavaScript libraries load from jsDelivr. Models are served from `models/` when self-hosted, otherwise from Hugging Face. Browsers can cache downloads but can also evict them.
 
-All four tiers are part of the classroom profile, so whichever tier the hardware recommender picks is served from your site. On weaker devices, choose tiny or small on the setup screen for faster replies; the quality tier needs about 1.6-1.9 GB of GPU memory or a 1.1 GB CPU download per student. A direct CPU starting link is `chat.html?engine=wllama&tier=tiny&experiment=shakespeare`.
+All five tiers are part of the classroom profile, so whichever tier the hardware recommender picks is served from your site. On weaker devices, choose tiny or small on the setup screen for faster replies; the quality tier needs about 1.6-1.9 GB of GPU memory or a 1.1 GB CPU download per student. A direct CPU starting link is `chat.html?engine=wllama&tier=tiny&experiment=shakespeare`.
+
+**Balanced** offers [TinyLlama 1.1B Chat v1.0](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0) as a manually selected alternative family. Its GPU estimates are about **697 MB** for f16 and **840 MB** for f32; the CPU GGUF download is about **638 MiB** (669 MB). Both engines use a **2,048-token context** for this model. Its larger parameter count does not guarantee better answers than Qwen2.5, and its CPU download is larger than medium's. Automatic recommendations are unchanged. To select it directly, use `chat.html?engine=webllm&tier=balanced&variant=f16` or `chat.html?engine=wllama&tier=balanced`.
 
 ## Browser Notes
 
@@ -167,6 +174,7 @@ Language support depends on the model, not the app:
 | Tier | Model | Languages |
 |---|---|---|
 | tiny, small | SmolLM2 135M / 360M | Mainly English. Spanish replies are often broken or switch back to English ([model card](https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct), Limitations). |
+| balanced | TinyLlama 1.1B Chat v1.0 | Mainly English ([model card](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0)). Use Qwen2.5 for multilingual classroom work. |
 | medium, quality | Qwen2.5 0.5B / 1.5B | 29+ languages, including Spanish, French, German, Portuguese, Arabic, Chinese and Japanese ([model card](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct)). Quality improves with size. |
 
 For a Spanish-speaking class:
@@ -181,7 +189,7 @@ The **Language explorer** mode turns this limitation into an experiment: compare
 ## Self-hosting the models
 
 ```powershell
-python download_models.py --profile classroom                 # all twelve builds, pinned model revisions (~5.3 GB)
+python download_models.py --profile classroom                 # all fifteen builds, pinned model revisions (~7.3 GB)
 python download_models.py --profile classroom --check         # offline readiness check, no changes
 python download_models.py                                     # all builds, latest upstream revisions
 python download_models.py --tiers tiny small --variants f16   # a subset
@@ -190,7 +198,7 @@ python download_models.py --manifest-only                     # rebuild manifest
 
 Do not combine `--profile` with explicit tier/engine/variant filters. Without `--profile`, the downloader uses the latest upstream revisions instead of the pinned ones.
 
-`model-downloads.json` records the classroom model revisions (SmolLM2 from the original attribution records, Qwen2.5 pinned on 2026-10-30), GGUF sizes and SHA-256 fingerprints of the compiled libraries. Model URLs use pinned revisions. Library downloads still use the catalog URL, but reject content that does not match the recorded fingerprint, rather than silently accepting an upstream change. Legal notices are retrieved from upstream and are not byte-for-byte locked.
+`model-downloads.json` records the classroom model revisions (SmolLM2 from the original attribution records, Qwen2.5 pinned on 2026-10-30, TinyLlama pinned on 2026-11-06), GGUF sizes and SHA-256 fingerprints of the compiled libraries. Model URLs use pinned revisions. Library downloads still use the catalog URL, but reject content that does not match the recorded fingerprint, rather than silently accepting an upstream change. Legal notices are retrieved from upstream and are not byte-for-byte locked.
 
 Completed files are reused when their recorded revision and expected size agree. Interrupted builds can reuse files completed by this downloader; an interrupted individual file restarts rather than resuming byte ranges. `.part`, `.revision`, `.inventory.json` and `.complete` are local preparation metadata. Missing files, shard-size mismatches or library hash mismatches fail the check. It is a deployment readiness check, not a cryptographic audit of every model weight.
 
@@ -224,7 +232,7 @@ Opening the files directly (`file://`) does not work.
 
 After preparing and checking the models, upload these paths together, preserving their relative layout:
 
-- The root HTML, JavaScript and CSS files, `icon.svg`, `catalog.json`, `LICENSE` and `robots.txt`.
+- The root HTML, JavaScript and CSS files, `icon.svg`, `datacenter.svg`, `catalog.json`, `version.json`, `LICENSE` and `robots.txt`.
 - The server config for your host: `web.config` (IIS) or `.htaccess` (Apache). Uploading both is harmless; each server ignores the other's file.
 - The `engines/` directory.
 - The complete generated `models/` directory, including `manifest.json`, model assets, licenses and attribution. Exclude unfinished `.part` files. The hidden preparation metadata can be kept for later validation; it is not used by browser inference.
@@ -266,7 +274,18 @@ Requirements:
 
 The repository includes ready-made config files for IIS and Apache that set all of the above: isolation headers, MIME types (including `.wasm` and `.gguf`) and a 30-day browser cache for model files. They apply to the folder they are in, so the site also works in a subdirectory.
 
-The header displays the current release version. Local JavaScript entry points, imports and the GPU worker use a matching version query parameter, as does the stylesheet, so returning browsers request new asset URLs. For a new release, update that token throughout the HTML, JavaScript and browser test, update all four header labels, and update the release assertion in `tests/experiments.test.js`. Deploy the changed files together. The IIS and Apache configs require revalidation of app assets and HTML without disabling model caching. Previously cached HTML can still need a reload or cache expiry before these changes take effect; an already-open tab is not updated automatically.
+### Release version
+
+`version.json` is the single source of truth for the app release. From the repository folder, use Node.js to set a release and synchronize its static references:
+
+```powershell
+node release.mjs 1.2
+node release.mjs --check
+```
+
+Use the next version number for a future release. Alternatively, edit `version.json` and run `node release.mjs` without an argument. The command stamps all four header labels, stylesheet URLs, local JavaScript imports and entry points, the GPU worker URL, and browser-test imports. `--check` reports stale references without changing files. Tests read the expected version from the manifest, not another hard-coded version. Model names, engine versions, model assets and browser storage keys are unchanged.
+
+Commit and deploy the stamped app files together with `version.json`. Release preparation uses Node's standard library; running or serving the site still requires no build step, Node installation or server-side code. `release.mjs` is a local maintenance tool and does not need to be uploaded. Versioned asset URLs make returning browsers request the new release. The IIS and Apache configs require revalidation of app assets and HTML without disabling model caching. Previously cached HTML can still need a reload or cache expiry before these changes take effect; an already-open tab is not updated automatically.
 
 ### IIS: [web.config](web.config)
 
@@ -300,6 +319,8 @@ location ~* ^/tiny-thinker/models/.*\.(gguf|bin|wasm)$ {
 - Manual setup: `index.html?manual=1`. **Done** resets the chat and returns here; setup then leads to choosing an experiment. Setting the chat URL directly also works, e.g. `chat.html?engine=wllama&tier=tiny`.
 - To show the first-run tips again during development, use the `resetCookies=1` URL parameter described under Development checks below.
 - If WebLLM fails to load or loses the GPU, the chat offers a one-click switch to the CPU engine.
+- A model load failure offers **Debug info (optional)**. Open it to collect and review the browser/OS user agent, device capabilities, storage quota and usage, engine versions, selected model and load error. **Download debug info** saves a local JSON report for sharing with someone helping you. It contains no system prompt, questions, replies or notes, and nothing is uploaded automatically. Review it before sharing: browser/device details and error messages may identify your environment.
+- `QuotaExceededError` usually means the browser hit a cache/storage limit, not necessarily that the GPU ran out of memory. Use **Done** to return to **Set up** and choose a smaller model, or review site storage, private-browsing restrictions and managed-device policies. Clearing site data removes cached models, saved settings and badges. Switching engines does not guarantee a quota problem will disappear, since both engines use browser storage.
 - To free browser storage, use the browser's own site settings (clear site data for this site). Models are downloaded again on the next visit.
 - To upgrade a library, change the versions in `catalog.json` and in `engines/webllm-worker.js`. Then check that the model IDs and `libBase` still match WebLLM's `prebuiltAppConfig`, and rerun `download_models.py`.
 
@@ -309,17 +330,17 @@ The pages carry a description, author, license and Open Graph tags for link prev
 
 ## Acknowledgements
 
-This project was developed with AI assistance: OpenAI GPT 6.1 Sol, Anthropic Claude 5.5 and Google Gemini 4 Argon were used for research, design, code, tests and documentation, reviewed and directed by the author. The models running in the app (SmolLM2, Qwen2.5) and the engines (WebLLM, wllama) are separate open-source projects; see [licenses.html](licenses.html).
+This project was developed with AI assistance: OpenAI GPT 6.1 Sol, Anthropic Claude 5.5 and Google Gemini 4 Argon were used for research, design, code, tests and documentation, reviewed and directed by the author. The models running in the app (SmolLM2, TinyLlama, Qwen2.5) and the engines (WebLLM, wllama) are separate open-source projects; see [licenses.html](licenses.html).
 
 ## Privacy and classroom limits
 
-The app does not intentionally send prompts or replies to an inference service. Conversations and reflection notes are not saved to localStorage; settings and device/model choices are. One first-party cookie, `tinythinker_tour_v2`, stores only a number (how many first-run tips were seen) for a year; it is not used for tracking. An older `tinythinker_tour` cookie, if present, is read to preserve earlier tour progress. Static hosts and third-party asset hosts can see normal requests, including IP addresses. Dependencies downloaded from CDNs execute in the browser, so choose and review those dependencies accordingly.
+The app does not intentionally send prompts or replies to an inference service. Conversations and reflection notes are not saved to localStorage; settings and device/model choices are. Two first-party cookies last for a year: `tinythinker_welcome` records that the welcome dialog was dismissed, and `tinythinker_tour_v2` stores only a number (how many first-run tips were seen). Neither is used for tracking. An older `tinythinker_tour` cookie, if present, is read to preserve earlier tour progress. Static hosts and third-party asset hosts can see normal requests, including IP addresses. Dependencies downloaded from CDNs execute in the browser, so choose and review those dependencies accordingly.
 
 Self-hosting the weights does not self-host the engine libraries, remove all external requests, or guarantee an offline reload. No service worker is included. Small open models can invent facts, ignore instructions, repeat stereotypes or produce inappropriate text. Prompts are not safety filters. Use teacher supervision and your school's policies, particularly for younger students, and keep personal information out of prompts and notes.
 
 ## Development checks
 
-For development only, append `?resetCookies=1` to the setup, experiment picker or chat URL to restart hints and clear all experiment badges, for example `index.html?resetCookies=1` or `chat.html?engine=wllama&tier=tiny&resetCookies=1`. This clears Tiny Thinker's current `tinythinker_tour_v2` and legacy `tinythinker_tour` cookies at the site-folder and root paths, plus the `tinythinker.experiment-progress` local-storage entry, before the page initializes hints and badges. Other cookies, saved settings and cached models are untouched. The parameter is removed from the address bar after use, preserving other parameters and the fragment, so reloading does not reset progress again. It is not shown as a student-facing control. Browser storage restrictions can prevent badge data from being removed.
+For development only, append `?resetCookies=1` to the setup, experiment picker or chat URL to restart the welcome and hints and clear all experiment badges, for example `index.html?resetCookies=1` or `chat.html?engine=wllama&tier=tiny&resetCookies=1`. This clears Tiny Thinker's `tinythinker_welcome`, current `tinythinker_tour_v2` and legacy `tinythinker_tour` cookies at the site-folder and root paths, plus the `tinythinker.experiment-progress` local-storage entry, before the page initializes hints and badges. Other cookies, saved settings and cached models are untouched. The parameter is removed from the address bar after use, preserving other parameters and the fragment, so reloading does not reset progress again. It is not shown as a student-facing control. Browser storage restrictions can prevent badge data from being removed.
 
 ### Implementation notes
 
@@ -335,6 +356,7 @@ No Node packages are required to run the app. For the standard-library tests, us
 
 ```powershell
 python -m unittest discover -s tests -p test_download_models.py
+node release.mjs --check
 node --test tests/experiments.test.js
 python download_models.py --profile classroom --check
 ```

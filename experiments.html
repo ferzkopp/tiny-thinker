@@ -20,12 +20,12 @@
   <meta name="theme-color" content="#2f6fde">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="license" href="https://opensource.org/license/mit">
-  <link rel="stylesheet" href="styles.css?v=1.1">
-  <script type="module" src="picker.js?v=1.1"></script>
+  <link rel="stylesheet" href="styles.css?v=1.2">
+  <script type="module" src="picker.js?v=1.2"></script>
 </head>
 <body>
   <header class="top">
-    <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker <small class="app-version">v1.1</small></h1>
+    <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker <small class="app-version">v1.2</small></h1>
     <span class="badge tagline">Learn AI by playing with it, right in your browser</span>
   </header>
 
@@ -43,14 +43,6 @@
       (http://localhost or https://), not as a local file, and make sure JavaScript is enabled.
     </div>
 
-    <section class="panel setup-summary" aria-labelledby="setup-title">
-      <div>
-        <h2 id="setup-title">Your AI model</h2>
-        <p id="setup-text"></p>
-      </div>
-      <a id="change-setup" class="button" href="index.html?manual=1">Change setup</a>
-    </section>
-
     <section aria-labelledby="pick-title">
       <div class="pick-heading">
         <h2 id="pick-title" class="pick-title">Choose an experiment</h2>
@@ -66,6 +58,14 @@
         <p>Free chat has no instructions. Ask anything and change the settings yourself.</p>
       </div>
       <a id="free-chat" class="button" href="chat.html">Open free chat</a>
+    </section>
+
+    <section class="panel setup-summary" aria-labelledby="setup-title">
+      <div>
+        <h2 id="setup-title">Your AI model</h2>
+        <p id="setup-text"></p>
+      </div>
+      <a id="change-setup" class="button" href="index.html?manual=1">Change setup</a>
     </section>
 
     <p><small>Questions and replies are processed on your device. <a href="licenses.html" data-licenses>Model licenses</a></small></p>
