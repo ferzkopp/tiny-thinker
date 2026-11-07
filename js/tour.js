@@ -1,7 +1,7 @@
 // First-run tips: a few popups with an arrow that point at the next thing to click, spread over the
 // setup, experiment and chat pages. A cookie remembers the last tip seen, so they only appear once.
-import { el } from './dom.js?v=1.3.1';
-import { resetExperimentProgress } from './experiments.js?v=1.3.1';
+import { el } from './dom.js?v=1.4';
+import { resetExperimentProgress } from './experiments.js?v=1.4';
 
 const COOKIE = 'tinythinker_tour_v2';
 const WELCOME_COOKIE = 'tinythinker_welcome';

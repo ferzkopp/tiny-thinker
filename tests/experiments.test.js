@@ -78,9 +78,14 @@ test('evaluation and chat share message construction without mutating conversati
   assert.equal(trimmed[1].content, 'How do I start?');
 });
 
-test('dinner-party guests use the tested card and Rosa is the preset guest', () => {
+test('dinner-party separates question and guest steps while keeping Rosa as the preset guest', () => {
   const activity = getExperiment('dinner-party');
-  const guests = activity.steps[0].actions.filter((action) => action.settings);
+  assert.equal(activity.steps.length, 4);
+  const questions = activity.steps[0].actions;
+  assert.deepEqual(questions.map((action) => action.label), ['Faraway friends', 'Fun after school']);
+  assert.ok(questions.every((action) => action.prompt && !action.settings), 'first step only fills chat questions');
+  const guests = activity.steps[1].actions;
+  assert.ok(guests.every((action) => action.settings && !action.prompt), 'second step only changes guest instructions');
   assert.deepEqual(guests.map((guest) => guest.label), ['Seat Rosa (1930)', 'Seat Daniel (1960)', 'Seat Mei (1990)']);
   assert.equal(guests[0].settings.systemPrompt, activity.settings.systemPrompt);
   for (const [guest, name, year] of guests.map((item, index) => [item, ['Rosa', 'Daniel', 'Mei'][index], ['1930', '1960', '1990'][index]])) {
@@ -91,7 +96,7 @@ test('dinner-party guests use the tested card and Rosa is the preset guest', () 
     assert.match(prompt, new RegExp(`Stay true to what you care about.*${name}\\.$`));
     assert.doesNotMatch(prompt, /User:|Assistant:/);
   }
-  assert.ok(activity.steps[1].actions.every((action) => action.prompt && /says/.test(action.prompt)), 'relay buttons model a student retelling');
+  assert.ok(activity.steps[2].actions.every((action) => action.prompt && /says/.test(action.prompt)), 'relay buttons model a student retelling');
   assert.equal(activity.settings.maxTokens, 96);
 });
 
@@ -404,7 +409,7 @@ test('all fourteen modes have valid presets and clickable step actions', () => {
       assert.equal(typeof activity[key], 'string');
       assert.ok(activity[key].length);
     }
-    assert.equal(activity.steps.length, 3);
+    assert.equal(activity.steps.length, activity.id === 'dinner-party' ? 4 : 3);
     const actions = activity.steps.flatMap((step) => step.actions || []);
     assert.ok(activity.steps.every((step) => step.text.length));
     assert.ok(actions.filter((action) => action.prompt).length >= 2, `${activity.id} has question buttons`);

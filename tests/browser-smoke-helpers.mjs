@@ -19,9 +19,10 @@ class FakeEngine {
     window.__calls ||= [];
     window.__calls.push({ messages, settings });
     return new Promise((resolve, reject) => {
+      window.__token = onToken;
       window.__finish = (text = 'Test reply') => { onToken(text); resolve({ text, finishReason: 'stop' }); };
       window.__reject = () => reject(new Error('late test failure'));
-      onToken('Working...');
+      if (!window.__holdTokens) onToken('Working...');
     });
   }
   interrupt() { window.__interrupted = true; window.__reject?.(); }

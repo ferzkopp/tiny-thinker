@@ -353,9 +353,11 @@ export const EXPERIMENTS = [
     id: 'dinner-party', title: 'Time-travel dinner party', minutes: '10-15 min', concept: 'Perspectives',
     objective: 'How did everyday life change over time, and can AI guests stay in their own time?',
     steps: [
-      { text: 'You host a dinner party across time. Rosa from 1930 is seated first: pick a question and press Send. Then seat the next guest. Your question stays in the box, so just press Send again:', actions: [
+      { text: 'You host a dinner party across time. Rosa from 1930 is seated first. Pick a question and press Send:', actions: [
         { label: 'Faraway friends', prompt: 'How do you talk to a friend who lives far away?' },
         { label: 'Fun after school', prompt: 'What do you do for fun after school?' },
+      ] },
+      { text: 'Seat the next guest by changing the system prompt. Your question stays in the box, so press Send again. Ask all three guests the same question:', actions: [
         { label: 'Seat Rosa (1930)', settings: { systemPrompt: ROSA_1930 } },
         { label: 'Seat Daniel (1960)', settings: { systemPrompt: DANIEL_1960 } },
         { label: 'Seat Mei (1990)', settings: { systemPrompt: MEI_1990 } },
@@ -366,7 +368,7 @@ export const EXPERIMENTS = [
       ] },
       { text: 'Spot role mistakes: a guest who mentions something from the wrong time, forgets who they are, talks like an AI or simply agrees with everyone. Open Settings, add one line to that guest\'s system prompt to fix it, and ask again.' },
     ],
-    notice: 'Use the quality model (Qwen2.5 1.5B). Medium guests often mention modern things like email, and smaller models ramble or forget their role. Even quality guests make mistakes, and finding them is part of the job. The guests are invented, not real people: check history facts in a book.',
+    notice: 'Use the quality model (Qwen2.5 1.5B). Guest replies from the medium model often mention modern things like email; smaller models may ramble or forget the role. Even the quality model makes mistakes, and finding them is part of the job. The guests are invented, not real people: check history facts in a book.',
     entry: 'Ask all three guests the same question. Find one thing that changed between 1930, 1960 and 1990.',
     stretch: 'Write a new guest for another time or place, such as a city kid and a farm kid today, or a 10-, 40- and 70-year-old. What does the system prompt need so the guest stays in role?',
     hint: { version: 1, field: 'system-prompt', title: 'Who is at the table?', text: 'Each guest is a system prompt. The green buttons seat a guest by changing it. When a guest gets their role wrong, fix them right here.' },

@@ -26,7 +26,7 @@ This lists the selected files and their total size without creating an output fo
 node tools/prepare-deployment.mjs
 ```
 
-The command prints a new folder such as `deployment/tiny-thinker-1.3.1-AbCdEf/`. Each run creates a different folder, so old releases and any records added to them are not overwritten or deleted. Copying the full classroom set needs roughly another 7.3 GB of disk space per snapshot.
+The command prints a new folder such as `deployment/tiny-thinker-1.4-AbCdEf/`. Each run creates a different folder, so old releases and any records added to them are not overwritten or deleted. Copying the full classroom set needs roughly another 7.3 GB of disk space per snapshot.
 
 Regenerate the snapshot after changing the release version or app files. Existing snapshots retain their original asset URLs; upload the newly generated folder's contents, not an earlier release's folder.
 

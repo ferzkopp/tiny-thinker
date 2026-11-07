@@ -39,7 +39,7 @@ On the first setup visit, a welcome dialog introduces Tiny Thinker. **Let's go**
 
 Share an activity using [Shakespeare remix](https://www.ferzkopp.net/tiny-thinker/index.html?experiment=shakespeare) or [Turtle artist](https://www.ferzkopp.net/tiny-thinker/index.html?experiment=turtle). The device check carries the activity through to chat, skipping the picker. These links contain no conversation text.
 
-The first reply can take longer while the engine warms up. A note beside the thinking dots stays until it finishes, stops or fails. After the first completed reply, the note does not repeat for replies, fresh runs or experiment changes that reuse the model.
+The first reply can take longer while the engine warms up. A note beside the thinking dots disappears as soon as the first response character arrives, or when the attempt stops or fails before producing text. After the first completed reply, the note does not repeat for replies, fresh runs or experiment changes that reuse the model.
 
 ## Find your way around
 

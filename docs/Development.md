@@ -75,7 +75,7 @@ Tests leave `__pycache__/` and `test-results/` behind. Keep useful local records
 [version.json](../config/version.json) is the single source of truth. Use Node.js to set a release and synchronize static references:
 
 ```powershell
-node tools/release.mjs 1.3.1
+node tools/release.mjs 1.4
 node tools/release.mjs --check
 ```
 

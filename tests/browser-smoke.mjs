@@ -139,11 +139,18 @@ try {
   const firstPrompt = await page.locator('#input').inputValue();
   assert.ok(firstPrompt.includes('crew'));
   assert.equal(await page.evaluate(() => window.__calls?.length || 0), 0, 'question buttons never auto-send');
+  await page.evaluate(() => { window.__holdTokens = true; });
   await page.locator('#send').click();
   await page.waitForFunction(() => window.__calls?.length === 1);
   assert.match(await page.evaluate(() => window.__calls[0].messages[0].content), /\nNever repeat the question\.$/, 'experiment system prompts discourage question echoes');
-  assert.equal(await page.locator('.warmup-note:visible').count(), 1, 'first reply explains model warmup while streaming');
+  assert.equal(await page.locator('.warmup-note:visible').count(), 1, 'first reply explains model warmup before any text arrives');
   assert.match(await page.locator('.warmup-note:visible').innerText(), /first reply can take longer/);
+  await page.evaluate(() => window.__token(''));
+  assert.equal(await page.locator('.warmup-note:visible').count(), 1, 'empty stream chunks do not dismiss the warmup note');
+  await page.evaluate(() => window.__token('W'));
+  assert.equal(await page.locator('.warmup-note:visible').count(), 0, 'one response character dismisses the warmup note');
+  assert.equal(await page.locator('#send').isDisabled(), true, 'the note disappears before generation finishes');
+  await page.evaluate(() => { window.__token('orking...'); window.__holdTokens = false; });
   await finish(page);
   assert.equal(await page.locator('.warmup-note:visible').count(), 0, 'completed reply automatically hides the warmup note');
   assert.equal(await page.locator('header #guide-badge').isVisible(), true, 'the first earned badge is visible in the persistent chat header');
@@ -614,7 +621,7 @@ try {
   await cold.waitForURL('**/index.html?experiment=creativity');
   await cold.locator('#go-now').waitFor({ state: 'visible' });
   const recommendations = await cold.evaluate(async () => {
-    const { recommend, incompatibility, CATALOG } = await import('./js/models.js?v=1.3.1');
+    const { recommend, incompatibility, CATALOG } = await import('./js/models.js?v=1.4');
     const caps = { wasm: true, wasmSimd: true, secureContext: true, webgpu: { available: true, f16: true, maxBufferMB: 2048 }, deviceMemoryGB: 8, mobile: false, cores: 8, threads: true, storageFreeMB: 10000 };
     const mediumHeadroom = CATALOG.tiers.medium.webllm.f16.vramMB * 2 + 256;
     return {
@@ -874,7 +881,7 @@ try {
   assert.deepEqual(await first.evaluate(() => JSON.parse(localStorage.getItem('tinythinker.experiment-hints'))), ['shakespeare@1']);
   const migrated = await first.evaluate(async () => {
     localStorage.setItem('tinythinker.experiment-hints', JSON.stringify(['shakespeare']));
-    const { hintSeen } = await import('./js/tour.js?v=1.3.1');
+    const { hintSeen } = await import('./js/tour.js?v=1.4');
     return {
       seen: hintSeen('shakespeare@1'),
       keys: JSON.parse(localStorage.getItem('tinythinker.experiment-hints')),
@@ -913,7 +920,7 @@ try {
   await skipper.goto(`${base}/index.html?manual=1`);
   await skipper.locator('#override').waitFor({ state: 'visible' });
   assert.equal(await skipper.locator('.tour:not(.hidden)').count(), 0, 'completed older tours do not restart after adding a tip');
-  assert.equal(await skipper.evaluate(async () => (await import('./js/tour.js?v=1.3.1')).tourProgress()), 6, 'older completed progress maps to the new final step');
+  assert.equal(await skipper.evaluate(async () => (await import('./js/tour.js?v=1.4')).tourProgress()), 6, 'older completed progress maps to the new final step');
   await skipContext.clearCookies({ name: 'tinythinker_tour_v2' });
   await skipContext.clearCookies({ name: 'tinythinker_tour' });
   await skipContext.addCookies([{ name: 'tinythinker_tour_v2', value: '0', url: base }, { name: 'tinythinker_welcome', value: '1', url: base }]);
