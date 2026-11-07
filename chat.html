@@ -130,7 +130,7 @@
         <details id="debug-info" class="debug-info hidden">
           <summary>Debug info (optional)</summary>
           <p>These details include browser and device capabilities, storage estimates, the selected model and the load error. No questions, replies or notes are included. Nothing is sent automatically. Review the details before sharing.</p>
-          <pre id="debug-report"></pre>
+          <pre id="debug-report" tabindex="0" role="region" aria-label="Debug report"></pre>
           <button id="download-debug" type="button">Download debug info</button>
         </details>
       </section>
@@ -185,7 +185,7 @@
       <h2 id="setting-help-title"></h2>
       <button id="close-setting-help" class="dialog-close" type="button" aria-label="Close setting explanation" title="Close">&times;</button>
     </div>
-    <div class="dialog-body">
+    <div class="dialog-body" tabindex="0" role="region" aria-labelledby="setting-help-title">
       <p id="setting-help-text"></p>
       <dl id="setting-help-facts" class="help-facts hidden"></dl>
       <p id="setting-help-example" class="help-example"></p>

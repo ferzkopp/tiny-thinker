@@ -12,3 +12,4 @@ venv/
 Thumbs.db
 /test-results/
 /node_modules/
+/deployment/

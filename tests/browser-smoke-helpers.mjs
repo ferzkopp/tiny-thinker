@@ -99,4 +99,25 @@ export async function noOverflow(page) {
       .map((element) => element.id || element.tagName);
   });
   assert.deepEqual(overflow, [], 'controls and text fit viewport');
+  const navigationOverflow = await page.locator('.journey li:visible').evaluateAll((items) => items.flatMap((item) => {
+    const bounds = item.getBoundingClientRect();
+    const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+    const problems = [];
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (!node.textContent.trim() || node.parentElement.closest('.journey-num, .help-btn')) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const rect of range.getClientRects()) {
+        if (rect.left < bounds.left - 1 || rect.right > bounds.right + 1) problems.push(node.textContent.trim());
+      }
+      for (const match of node.textContent.matchAll(/\S+/g)) {
+        range.setStart(node, match.index);
+        range.setEnd(node, match.index + match[0].length);
+        if (range.getClientRects().length > 1) problems.push(`${match[0]} (split word)`);
+      }
+    }
+    return problems;
+  }));
+  assert.deepEqual(navigationOverflow, [], 'navigation labels fit their columns and words stay readable');
 }

@@ -4,9 +4,13 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { EXPERIMENTS, getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, experimentBadgeLevel, recordExperimentInteraction, resetExperimentProgress } from '../experiments.js';
 import { extractTurtleCode, parseTurtle, runTurtle } from '../turtle.js';
 import { release, updateVersionReferences } from '../release.mjs';
+import { parseGridOptions } from './prompt-grid-helpers.mjs';
+import { DEPLOYMENT_FILES, prepareDeployment } from '../prepare-deployment.mjs';
 
 test('TinyLlama has both GPU precisions, a CPU build and its native context limit', () => {
   const catalog = JSON.parse(readFileSync(new URL('../catalog.json', import.meta.url), 'utf8'));
@@ -116,9 +120,55 @@ test('experiment hint storage migrates legacy unversioned keys', () => {
   assert.deepEqual(migrateHintKeys('not json'), []);
 });
 
+test('grid options preserve precision, filters and explicit boolean flags', () => {
+  const options = parseGridOptions(['--variant=f32', '--experiments=shakespeare,coach', '--holdout=false', '--rescore=true']);
+  assert.equal(options.variant, 'f32');
+  assert.equal(options.experiments, 'shakespeare,coach');
+  assert.equal(options.holdout, false);
+  assert.equal(options.rescore, true);
+  assert.equal(parseGridOptions([]).variant, 'f16');
+  assert.equal(parseGridOptions(['--engine=wllama']).variant, '');
+  assert.equal(parseGridOptions(['--holdout']).holdout, true);
+  assert.equal(parseGridOptions(['--prompts=folder/name=example.mjs']).prompts, 'folder/name=example.mjs');
+});
+
+test('grid options reject unknown names, experiments and invalid values', () => {
+  for (const args of [
+    ['--unknown-option=yes'], ['--experiments=not-a-real-id'], ['--experiments='],
+    ['--variant=f64'], ['--engine=wllama', '--variant=f32'], ['--tiers='],
+    ['--tiers=tiny,not-a-tier'], ['--sampling=unknown'], ['--holdout=maybe'],
+    ['--rescore=maybe'], ['--repetitions=0'], ['--reference=../baseline'], ['phase'],
+  ]) {
+    assert.throws(() => parseGridOptions(args), undefined, args.join(' '));
+  }
+});
+
+test('grid selections reject empty matches before loading Playwright', () => {
+  for (const args of [['--variants=not-a-prompt-variant'], ['--experiments=dinner-party', '--holdout']]) {
+    const result = spawnSync(process.execPath, [fileURLToPath(new URL('./prompt-grid.mjs', import.meta.url)), ...args], {
+      encoding: 'utf8', env: { ...process.env, PLAYWRIGHT_MODULE: 'missing-playwright-module.mjs' },
+    });
+    assert.equal(result.status, 1, args.join(' '));
+    assert.match(result.stderr, /No evaluation cases match/);
+    assert.doesNotMatch(result.stderr, /ERR_MODULE_NOT_FOUND/);
+  }
+});
+
 test('evaluation tools do not pin stale app module cache versions', () => {
-  for (const file of ['tests/prompt-grid.mjs', 'test-results/role-dialog.mjs']) {
-    assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), /\?v=1\.2/);
+  const { version } = JSON.parse(readFileSync(new URL('../version.json', import.meta.url), 'utf8'));
+  const source = readFileSync(new URL('./prompt-grid.mjs', import.meta.url), 'utf8');
+  for (const match of source.matchAll(/[?&]v=(\d+\.\d+(?:\.\d+)?)/g)) {
+    assert.equal(match[1], version, 'committed evaluator uses the current cache version');
+  }
+});
+
+test('optional local role evaluator uses the current cache version', {
+  skip: !existsSync(new URL('../test-results/role-dialog.mjs', import.meta.url)),
+}, () => {
+  const { version } = JSON.parse(readFileSync(new URL('../version.json', import.meta.url), 'utf8'));
+  const source = readFileSync(new URL('../test-results/role-dialog.mjs', import.meta.url), 'utf8');
+  for (const match of source.matchAll(/[?&]v=(\d+\.\d+(?:\.\d+)?)/g)) {
+    assert.equal(match[1], version, 'local evaluator uses the current cache version');
   }
 });
 
@@ -190,10 +240,71 @@ test('release command detects stale references without writing and stamps from o
   }
 });
 
-/** Creates a minimal in-memory local-storage implementation for badge tests.
- * @param {string|null} value Initial stored value.
- * @returns {{getItem: (key: string) => string|null, setItem: (key: string, next: string) => void}} Storage-like object.
- */
+test('deployment snapshots include runtime, manifest models and licenses but exclude local artifacts', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'tiny-thinker-deployment-'));
+  try {
+    const fixture = (file, contents = file) => {
+      mkdirSync(join(directory, file, '..'), { recursive: true });
+      writeFileSync(join(directory, file), contents);
+    };
+    for (const file of DEPLOYMENT_FILES) fixture(file);
+    fixture('version.json', JSON.stringify({ version: '1.3' }));
+    const build = { path: 'gguf/tiny/model.gguf', licenseFile: 'gguf/tiny/LICENSE', attributionFile: 'gguf/tiny/ATTRIBUTION.txt' };
+    const gpu = { model: 'webllm/tiny/resolve/main/', lib: 'webllm/libs/tiny.wasm',
+      licenseFile: 'webllm/tiny/LICENSE', attributionFile: 'webllm/tiny/ATTRIBUTION.txt' };
+    fixture('models/manifest.json', JSON.stringify({ webllm: { tiny: gpu }, gguf: { tiny: build } }));
+    for (const file of [...Object.values(build), 'gguf/tiny/NOTICE']) fixture(`models/${file}`);
+    for (const file of [gpu.lib, gpu.licenseFile, gpu.attributionFile, 'webllm/libs/ATTRIBUTION.txt',
+      'webllm/tiny/resolve/main/mlc-chat-config.json', 'webllm/tiny/resolve/main/tokenizer.json', 'webllm/tiny/resolve/main/params_shard_0.bin',
+      'webllm/tiny/resolve/main/params_shard_1.bin.part', 'webllm/tiny/resolve/main/.complete', 'webllm/tiny/resolve/main/.inventory.json',
+      'webllm/tiny/resolve/main/params_shard_0.bin.revision']) fixture(`models/${file}`);
+    for (const file of ['test-results/notes.txt', 'node_modules/private.js', 'scratch.js', 'serve.py', 'models/unused/model.gguf', 'models/gguf/tiny/model.gguf.part']) fixture(file);
+    const preview = prepareDeployment({ directory, dryRun: true });
+    assert.equal(preview.output, null);
+    assert.equal(existsSync(join(directory, 'deployment')), false, 'dry run creates no output folder');
+    const first = prepareDeployment({ directory });
+    assert.deepEqual(first.files, preview.files);
+    for (const file of first.files) assert.deepEqual(readFileSync(join(first.output, file)), readFileSync(join(directory, file)));
+    assert.ok(first.files.includes(join('models', 'gguf', 'tiny', 'NOTICE')));
+    assert.ok(first.files.includes(join('models', 'webllm', 'tiny', 'resolve', 'main', 'params_shard_0.bin')));
+    assert.ok(first.files.includes(join('models', 'webllm', 'libs', 'tiny.wasm')));
+    assert.equal(first.files.some((file) => /\.part$|\.revision$|\.complete$|\.inventory\.json$/.test(file)), false);
+    for (const file of ['test-results', 'node_modules', 'scratch.js', 'serve.py', 'models/unused', 'models/gguf/tiny/model.gguf.part']) {
+      assert.equal(existsSync(join(first.output, file)), false, file);
+    }
+    writeFileSync(join(first.output, 'keep.txt'), 'user-added record');
+    const second = prepareDeployment({ directory });
+    assert.notEqual(first.output, second.output);
+    assert.equal(readFileSync(join(first.output, 'keep.txt'), 'utf8'), 'user-added record');
+    assert.throws(() => prepareDeployment({ directory, outputRoot: join(directory, 'models') }), /outside the source/);
+    fixture('models/manifest.json', JSON.stringify({ webllm: {}, gguf: { tiny: { ...build, path: '../version.json' } } }));
+    assert.throws(() => prepareDeployment({ directory, dryRun: true }), /escapes models/);
+    fixture('models/manifest.json', JSON.stringify({ webllm: {}, gguf: { tiny: { ...build, path: 'gguf/tiny/model.gguf.part' } } }));
+    assert.throws(() => prepareDeployment({ directory, dryRun: true }), /local-only asset/);
+    fixture('models/manifest.json', JSON.stringify({ webllm: {}, gguf: { tiny: { ...build, path: 'gguf/tiny/missing.gguf' } } }));
+    assert.throws(() => prepareDeployment({ directory, dryRun: true }), /Missing deployment asset/);
+    rmSync(join(directory, 'models', 'manifest.json'));
+    assert.throws(() => prepareDeployment({ directory, dryRun: true }), /Missing models\/manifest.json/);
+    fixture('models/manifest.json', JSON.stringify({ webllm: {}, gguf: {} }));
+    fixture('index.html', '<small class="app-version">v1.2</small>');
+    assert.throws(() => prepareDeployment({ directory, dryRun: true }), /stale references/);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('deployment CLI documents options and rejects unknown or incomplete flags', () => {
+  const script = fileURLToPath(new URL('../prepare-deployment.mjs', import.meta.url));
+  const help = spawnSync(process.execPath, [script, '--help'], { encoding: 'utf8' });
+  assert.equal(help.status, 0);
+  assert.match(help.stdout, /--dry-run.*--output-root/);
+  for (const args of [['--unknown'], ['--output-root'], ['--output-root', '--dry-run']]) {
+    const result = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Unknown or incomplete option/);
+  }
+});
+
 /** Creates a minimal local-storage implementation for badge tests.
  * @param {string|null} value Initial JSON or raw value.
  * @returns {{getItem: (key: string) => string|null, setItem: (key: string, next: string) => void}} Storage-like object.

@@ -26,7 +26,7 @@ try {
   assert.equal(await page.locator('#journey-experiments').evaluate((link) => getComputedStyle(link).backgroundColor), 'rgb(224, 161, 0)', 'experiment action is yellow');
   assert.equal(await page.locator('#guide').isVisible(), false, 'free chat shows no instructions');
   assert.match(await page.locator('#system-prompt').inputValue(), /friendly, concise assistant/);
-  assert.equal(await page.locator('a[href="CLASSROOM.md"]').count(), 0, 'no teacher guide link');
+  assert.equal(await page.locator('a[href$="Classroom.md" i]').count(), 0, 'no teacher guide link');
   assert.equal(await page.locator('select').count(), 0, 'chat header has no selectors');
   assert.ok(await page.locator('header .brand img').evaluate((image) => image.complete && image.naturalWidth > 0), 'icon loads');
   assert.equal(await page.locator('link[rel="icon"]').getAttribute('href'), 'icon.svg');
@@ -42,7 +42,7 @@ try {
   for (let index = 0; index < await helpButtons.count(); index += 1) {
     const button = helpButtons.nth(index);
     const box = await button.boundingBox();
-    assert.ok(box.width <= 16 && box.height <= 16, 'help buttons are small');
+    assert.ok(box.width >= 24 && box.height >= 24, 'help buttons have usable pointer targets');
     await button.focus();
     await page.keyboard.press('Enter');
     assert.equal(await page.locator('#setting-help-dialog').isVisible(), true);
@@ -75,6 +75,53 @@ try {
   await page.keyboard.press('Escape');
   console.log('PASS all settings popups, keyboard activation, Escape, close button and focus return');
 
+  for (const route of ['index.html?manual=1', 'experiments.html?engine=wllama&tier=tiny', 'licenses.html']) {
+    await page.goto(`${base}/${route}`);
+    const skipLink = page.getByRole('link', { name: 'Skip to main content', exact: true });
+    await skipLink.focus();
+    assert.ok((await skipLink.boundingBox()).y >= 0, 'skip link becomes visible on focus');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#main').evaluate((element) => document.activeElement === element), true);
+  }
+  await page.goto(`${base}/chat.html?engine=wllama&tier=tiny`);
+  await ready(page);
+  await page.getByRole('link', { name: 'Skip to the chat', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#log').evaluate((element) => document.activeElement === element), true);
+  await page.setViewportSize({ width: 360, height: 480 });
+  await page.locator('[data-help="model"]').click();
+  const helpBody = page.locator('#setting-help-dialog .dialog-body');
+  assert.equal(await helpBody.getAttribute('tabindex'), '0');
+  await helpBody.focus();
+  await page.keyboard.press('PageDown');
+  await page.waitForFunction(() => document.querySelector('#setting-help-dialog .dialog-body').scrollTop > 0);
+  for (const key of ['Tab', 'Tab', 'Shift+Tab']) {
+    await page.keyboard.press(key);
+    assert.equal(await page.evaluate(() => document.querySelector('#workspace').contains(document.activeElement)), false,
+      'modal keyboard focus cannot reach background controls');
+  }
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('[data-help="model"]').evaluate((element) => document.activeElement === element), true);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`${base}/experiments.html?engine=wllama&tier=tiny`);
+  await page.locator('.experiment-card').first().focus();
+  assert.equal(await page.locator('.experiment-card').first().evaluate((element) => getComputedStyle(element).transform), 'none');
+  await page.goto(`${base}/chat.html?engine=wllama&tier=tiny`);
+  await ready(page);
+  await page.locator('#input').fill('Accessible streaming status');
+  await page.locator('#send').click();
+  await page.waitForFunction(() => typeof window.__finish === 'function');
+  assert.equal(await page.locator('#log').getAttribute('aria-busy'), 'true');
+  assert.equal(await page.locator('.thinking .dot').first().evaluate((element) => getComputedStyle(element).animationName), 'none');
+  assert.equal(await page.locator('.load-icon').evaluate((element) => getComputedStyle(element).animationName), 'none');
+  await finish(page);
+  assert.equal(await page.locator('#log').getAttribute('aria-busy'), null);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  console.log('PASS accessibility: skip links, keyboard-scrolling help, modal focus, reduced motion and live-region busy state');
+
+  await page.goto(`${base}/chat.html?engine=wllama&tier=tiny`);
+  await ready(page);
   await chooseExperiment(page, 'shakespeare');
   assert.equal(await page.locator('#guide').isVisible(), true, 'opening an experiment shows its instructions');
   assert.equal(await page.locator('#guide-badge').isVisible(), false, 'visiting an experiment does not earn a badge');
@@ -284,6 +331,18 @@ try {
   await finish(page);
   console.log('PASS mobile instructions, help popup, responsive controls and keyboard submit');
 
+  for (const width of [320, 360]) {
+    await page.setViewportSize({ width, height: 812 });
+    await page.goto(`${base}/chat.html?engine=wllama&tier=quality&experiment=dinner-party`);
+    await ready(page);
+    const fontSize = await page.locator('html').evaluate((element) => parseFloat(getComputedStyle(element).fontSize));
+    await page.addStyleTag({ content: `html { font-size: ${fontSize * 2}px !important; }` });
+    await noOverflow(page);
+    await page.locator('.journey').screenshot({ path: `test-results/navigation-mobile-enlarged-${width}.png` });
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
+  console.log('PASS enlarged mobile text: navigation labels remain within their columns');
+
   await page.goto(`${base}/chat.html?engine=wllama&tier=tiny&experiment=not-real`);
   await ready(page);
   assert.equal(await page.locator('#guide').isVisible(), false);
@@ -475,6 +534,11 @@ try {
   await quotaPage.locator('#download-debug').click();
   assert.equal((await debugDownload).suggestedFilename(), 'tiny-thinker-debug.json');
   await quotaPage.setViewportSize({ width: 375, height: 812 });
+  assert.equal(await quotaPage.locator('#debug-report').getAttribute('tabindex'), '0');
+  assert.equal(await quotaPage.locator('#debug-report').getAttribute('aria-label'), 'Debug report');
+  await quotaPage.locator('#debug-report').focus();
+  await quotaPage.keyboard.press('PageDown');
+  await quotaPage.waitForFunction(() => document.querySelector('#debug-report').scrollTop > 0);
   await noOverflow(quotaPage);
   await quotaPage.screenshot({ path: 'test-results/quota-debug-mobile.png' });
   await quotaPage.evaluate(() => { window.__failQuota = false; });

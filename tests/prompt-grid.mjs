@@ -7,8 +7,6 @@ import { extractTurtleCode, runTurtle } from '../turtle.js';
 import { parseGridOptions, summarizeGrid } from './prompt-grid-helpers.mjs';
 
 const options = parseGridOptions(process.argv.slice(2));
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE
-  ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
 const base = process.env.PREVIEW_URL || 'http://127.0.0.1:8765';
 const engineName = options.engine;
 const tiers = options.tiers;
@@ -103,13 +101,11 @@ add('coach', 'Right guess (3/4)', (text) => /correct|spot on|right|well done|yes
 add('make-it-yours', 'Club poster', (text) => /club/i.test(text) && /mak|creat|build|invent/i.test(text));
 add('make-it-yours', '+ real constraints', (text) => text.trim().split('\n').filter((line) => line.trim()).length === 4 && /cardboard/i.test(text) && /bring/i.test(text));
 // Dinner party: in-role, own-life details, no modern tech for historical guests, curiosity about unknown things.
-/** Builds a modern-technology word pattern for anachronism checks. */
 /** Builds a modern-technology word pattern for anachronism checks.
  * @param {string} extra Additional alternatives.
  * @returns {RegExp} Modern-word pattern.
  */
 const modern = (extra = '') => new RegExp(`\\b(?:internet|online|website|e-?mail|smartphone|cell ?phone|mobile phone|social media|apps?\\b|streaming|wi-?fi|tablet|youtube|google|video call${extra})`, 'i');
-/** Checks for a natural first-person dinner-party reply instead of an AI-style disclosure. */
 /** Checks for a natural first-person dinner-party reply instead of an AI-style disclosure.
  * @param {string} text Reply text.
  * @returns {boolean} True if it looks in-role and first-person.
@@ -173,6 +169,9 @@ if (options.holdout) {
 function summarize(results) {
   return summarizeGrid(results, EXPERIMENTS);
 }
+const selectedCases = cases.filter((item) => !selected || selected.includes(item.experiment))
+  .filter((item) => !options.variants || item.variant.startsWith(options.variants));
+assert.ok(selectedCases.length, 'No evaluation cases match the requested experiment/variant filters');
 if (options.rescore) {
   const saved = JSON.parse(await readFile(`test-results/prompt-grid-${phase}.json`, 'utf8'));
   for (const result of saved.results) {
@@ -186,10 +185,12 @@ if (options.rescore) {
   console.table(saved.summary);
   process.exit(0);
 }
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE
+  ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const results = [];
-const report = { phase, engine: engineName, sampling: options.sampling === 'preset' ? 'preset' : 'temperature=0',
-  requestFormat: 'production buildModelMessages', startedAt: new Date().toISOString(), cases: cases.length, results };
+const report = { phase, engine: engineName, modelVariant: options.variant, sampling: options.sampling,
+  requestFormat: 'production buildModelMessages', startedAt: new Date().toISOString(), cases: selectedCases.length, results };
 await mkdir('test-results', { recursive: true });
 const output = `test-results/prompt-grid-${phase}.json`;
 /** Writes the current grid report to disk.
@@ -205,25 +206,24 @@ try {
     page.setDefaultTimeout(180000);
     await page.goto(`${base}/licenses.html`);
     console.log(`LOAD ${engineName} ${tier}`);
-    await page.evaluate(async ({ engineName, tier }) => {
+    await page.evaluate(async ({ engineName, tier, variant }) => {
       const { resolveSource, modelContextSize } = await import('./models.js?v=1.3');
       const module = await import(`./engines/${engineName}-engine.js?v=1.3`);
-      const config = { engine: engineName, tier, variant: 'f16' };
+      const config = { engine: engineName, tier, variant };
       window.gridEngine = new module[engineName === 'webllm' ? 'WebLLMEngine' : 'WllamaEngine']();
       await window.gridEngine.load(resolveSource(config), () => {}, { contextSize: modelContextSize(config) });
-    }, { engineName, tier });
-    for (const scenario of cases.filter((item) => !selected || selected.includes(item.experiment))
-      .filter((item) => !options.variants || item.variant.startsWith(options.variants))) {
+    }, { engineName, tier, variant: options.variant });
+    for (const scenario of selectedCases) {
       for (let repetition = 0; repetition < repetitions; repetition += 1) {
         const started = Date.now();
         const preset = reference ? (reference.results.find((item) => item.tier === tier && item.experiment === scenario.experiment && item.label === scenario.label && item.variant === scenario.variant)
           || reference.results.find((item) => item.tier === tier && item.experiment === scenario.experiment && item.variant === scenario.variant))?.settings : scenario.settings;
         assert.ok(preset, `Missing reference settings: ${tier} ${scenario.label}`);
         const settings = { ...preset, temperature: options.sampling === 'preset' ? preset.temperature : 0 };
-        const messages = await page.evaluate(async ({ engineName, tier, settings, history }) => {
+        const messages = await page.evaluate(async ({ engineName, tier, variant, settings, history }) => {
           const { buildModelMessages } = await import('./models.js?v=1.3');
-          return buildModelMessages({ engine: engineName, tier, variant: 'f16' }, settings, history);
-        }, { engineName, tier, settings, history: [...scenario.history, { role: 'user', content: scenario.prompt }] });
+          return buildModelMessages({ engine: engineName, tier, variant }, settings, history);
+        }, { engineName, tier, variant: options.variant, settings, history: [...scenario.history, { role: 'user', content: scenario.prompt }] });
         let response;
         try {
           response = await page.evaluate(async ({ messages, settings }) =>

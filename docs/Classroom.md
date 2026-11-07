@@ -1,16 +1,18 @@
 # Classroom Guide
 
+[Project overview and quickstart](../README.md) | [Using the playground](Usage.md) | [Evaluation](Evaluation.md)
+
 ## What Students Are Investigating
 
 Tiny Thinker runs small, already-trained language models on the student's device. Students change instructions and generation settings; they do not train a new model. The useful outcome is an observation supported by a comparison, or a student-made artifact shaped and critiqued with the tool, not a quick answer copied from the model.
 
-Use the cycle **predict -> try -> change one thing -> compare -> explain**, and for creative tasks **plan -> generate -> critique -> rewrite -> share**. Model failures are valid evidence: a model might ignore the Shakespeare voice, invent a fact, miscount a step or break its silly rule. Do not promise an activity will always produce a particular response. Measured success rates per activity and model are in the [prompt evaluation](prompt-evaluation.md).
+Use the cycle **predict -> try -> change one thing -> compare -> explain**, and for creative tasks **plan -> generate -> critique -> rewrite -> share**. Model failures are valid evidence: a model might ignore the Shakespeare voice, invent a fact, miscount a step or break its silly rule. Do not promise an activity will always produce a particular response. Measured success rates per activity and model are in the [evaluation](Evaluation.md).
 
 Treat AI like any convenience tool: useful when directed with clear goals and context, but easy to lean on passively. Keep students in the producer's seat by having them work out a small case by hand first, define success criteria before prompting, critique what comes back, and make the final piece their own.
 
 ## Before Class
 
-1. Prepare the site with `python download_models.py --profile classroom`, then `python download_models.py --profile classroom --check`. See [README.md](../README.md) for deployment details.
+1. Prepare and deploy the site using the [Deployment guide](Deployment.md), which links the model-readiness checks and server requirements, then covers staging, upload and verification.
 2. Test the actual school browser, network and representative devices. Use HTTPS on a remote server; localhost works for preview. Confirm jsDelivr is accessible. Other model tiers may also need Hugging Face access.
 3. All five model tiers are prepared on the site. On weaker devices, choose tiny or small on the setup screen; medium and quality give better answers (and Spanish) but need more memory and a longer first download per device. The Time-travel dinner party needs quality.
 4. Open and warm up the chosen model on each device before students arrive. Disk copies on the server do not mean every browser already has a cached copy. Coordinate downloads to avoid overloading school Wi-Fi.
@@ -139,7 +141,7 @@ Here the subject is the main learning goal, and the AI is a tool. The guests wil
 
 **Why students relay the conversation.** The guests cannot hear each other: each answers the host's question on their own, and the student passes on what one guest said, in their own words. With the models available here, letting the app pass one guest's reply straight to the next did not work. The second guest copied the first or politely agreed. Student relays keep the guests distinct and turn passing messages into a summarizing exercise. Students can also discuss what changes when AI agents mainly talk to each other; the [Gibberlink](https://en.wikipedia.org/wiki/Gibberlink) demonstration, where two voice agents switch to a machine-only sound protocol, is a recent example.
 
-**Model requirement.** Use the quality model (Qwen2.5 1.5B). On medium, guests often mention email or phones in 1930. That is fine for a short "find the mistake" warm-up, but not for a history discussion. Smaller models lose the role. Measured results are in the [prompt evaluation](prompt-evaluation.md#dinner-party-activity-14).
+**Model requirement.** Use the quality model (Qwen2.5 1.5B). On medium, guests often mention email or phones in 1930. That is fine for a short "find the mistake" warm-up, but not for a history discussion. Smaller models lose the role. Measured results are in the [evaluation](Evaluation.md#dinner-party-activity-14).
 
 **Role mistakes to look for:**
 

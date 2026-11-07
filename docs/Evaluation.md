@@ -1,6 +1,10 @@
-# Prompt evaluation
+# Evaluation
+
+[Project overview and quickstart](../README.md) | [Classroom guide](Classroom.md) | [Development checks](Development.md#run-the-checks)
 
 **Status for Tiny Thinker v1.3.** This report covers how well each activity's presets work with each model, using real in-browser inference. The smoke tests replace the model with a fake engine.
+
+All fourteen activities are covered. [14. Time-travel dinner party](#dinner-party-activity-14) has a separate results table because it was tested at its preset temperature with repeated samples, rather than under the main grid's temperature-0 conditions.
 
 These are behavior checks for classroom debugging, not general model-quality, accuracy or safety scores.
 
@@ -18,7 +22,7 @@ These are behavior checks for classroom debugging, not general model-quality, ac
 
 ## Main grid
 
-Starter cases at temperature 0 (passes / cases):
+Activities 1-13, starter cases at temperature 0 (passes / cases). Activity 14's results are [reported separately below](#dinner-party-activity-14) and are not included in this grid's total.
 
 | Activity | tiny | small | balanced | medium | quality | Total |
 |---|---:|---:|---:|---:|---:|---:|
@@ -35,7 +39,7 @@ Starter cases at temperature 0 (passes / cases):
 | 11. Socratic coach | 4/4 | 1/4 | 1/4 | 2/4 | 4/4 | 12/20 |
 | 12. Make it your own | 1/2 | 1/2 | 1/2 | 1/2 | 2/2 | 6/10 |
 | 13. Turtle artist | 1/2 | 1/2 | 2/2 | 1/2 | 2/2 | 7/10 |
-| **Total** | **24/34** | **21/34** | **18/34** | **21/34** | **28/34** | **112/170 (66%)** |
+| **Total (activities 1-13)** | **24/34** | **21/34** | **18/34** | **21/34** | **28/34** | **112/170 (66%)** |
 
 The tiny models score well in Break the silly rule mainly because they ramble and never produce the forbidden word. A passing check is not necessarily a useful answer.
 
@@ -57,7 +61,7 @@ With two unseeded samples per case, single cells can swing by several passes bet
 
 ## Dinner party (activity 14)
 
-Shipped guest prompts, three samples per case at temperature 0.6:
+**14. Time-travel dinner party:** shipped guest prompts, four cases per model and three samples per case at temperature 0.6 (12 replies per model, 60 overall):
 
 | Model | Passed | Observed behavior |
 |---|---:|---|
@@ -67,6 +71,8 @@ Shipped guest prompts, three samples per case at temperature 0.6:
 | Qwen2.5 0.5B | 3/12 | Often mentions email, phones or computers in historical roles |
 | Qwen2.5 1.5B | 9/12 | Mostly in role; occasional slips |
 
+Across the five models, 23/60 replies passed these checks. This separate result is not combined with the main grid because the sampling settings and repetition counts differ.
+
 The four cases are:
 
 - Rosa (1930) answering "How do you talk to a friend who lives far away?".
@@ -74,7 +80,7 @@ The four cases are:
 - Rosa asked about Mei's home computer.
 - Daniel (1960) hearing about Rosa's letters.
 
-Checks require a first-person reply, details from the guest's own time and no AI-style answer or out-of-time technology. Asking what an unknown thing is counts as correct. The activity requires the quality model; see the [Classroom Guide](CLASSROOM.md#background-time-travel-dinner-party) for the design and typical role mistakes.
+Checks require a first-person reply, details from the guest's own time and no AI-style answer or out-of-time technology. Asking what an unknown thing is counts as correct. The activity requires the quality model; see the [Classroom guide](Classroom.md#background-time-travel-dinner-party) for the design and typical role mistakes.
 
 ## Prompt design notes
 
@@ -98,7 +104,7 @@ The presets follow these findings from testing:
 - **12. Make it your own:** models often add titles or headings to the four-line poster.
 - **14. Time-travel dinner party:** requires the quality model. Typical Qwen 1.5B slips are a 1960 guest mentioning email, a guest taking over another guest's role, an AI-style "I don't have personal experiences" and agreeing with whoever was quoted.
 
-Students are told about these expectations in each activity's notice and in the [Classroom Guide](CLASSROOM.md).
+Students are told about these expectations in each activity's notice and in the [Classroom guide](Classroom.md).
 
 ## What the checks measure
 
@@ -120,7 +126,7 @@ These checks are transparent automated screens. They do not prove factual accura
 
 ## Reproduce
 
-Use the Playwright setup in [README.md](../README.md#development-checks), Microsoft Edge and an isolated preview server on port 8765. The runner uses real WebGPU f16 inference and downloads model files if they are not local or cached.
+Use the Playwright setup in [Development](Development.md#run-the-checks), Microsoft Edge and an isolated preview server on port 8765. The runner uses real WebGPU inference (f16 by default) and downloads model files if they are not local or cached.
 
 ```powershell
 node tests/prompt-grid.mjs --phase=main
@@ -134,6 +140,8 @@ node tests/prompt-grid.mjs --phase=candidate --experiments=bug-hunt --prompts=my
 ```
 
 Without `--experiments`, the main grid runs all activities, including the dinner-party cases. To match this report, use `--experiments` to separate activities 1-13 from activity 14.
+
+`--variant=f32` selects WebGPU model precision; CPU runs do not accept this option. The plural `--variants` filters prompt-variant labels by prefix, for example `--variants="Pirate voice"`. Unknown options, invalid experiment IDs and filters with no matching cases stop the run. Boolean flags accept explicit `true` or `false`, so `--holdout=false` runs the main grid.
 
 A candidate file is an ES module whose default export maps experiment IDs to a list of candidates:
 
