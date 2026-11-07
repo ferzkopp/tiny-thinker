@@ -7,7 +7,43 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import download_models as downloader
+from tools import download_models as downloader
+from tools import serve
+
+
+class PreviewTests(unittest.TestCase):
+    def test_web_file_urls_resolve_to_web_folder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "web").mkdir()
+            for name in ("robots.txt", ".htaccess", "web.config"):
+                (root / "web" / name).write_text(name, encoding="utf-8")
+            handler = object.__new__(serve.Handler)
+            handler.directory = directory
+            for name in ("robots.txt", ".htaccess", "web.config"):
+                self.assertEqual(Path(handler.translate_path("/" + name)), root / "web" / name)
+
+    def test_direct_html_urls_redirect_to_public_routes_with_query(self):
+        handler = object.__new__(serve.Handler)
+        handler.path = "/html/chat.html?engine=wllama&tier=tiny"
+        with patch.object(handler, "send_response") as response, patch.object(handler, "send_header") as header, patch.object(handler, "end_headers"):
+            self.assertIsNone(handler.send_head())
+            response.assert_called_once_with(302)
+            header.assert_called_once_with("Location", "/chat.html?engine=wllama&tier=tiny")
+
+    def test_public_page_urls_resolve_to_html_folder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "html").mkdir()
+            for name in ("index.html", "experiments.html", "chat.html", "licenses.html"):
+                (root / "html" / name).write_text(name, encoding="utf-8")
+            handler = object.__new__(serve.Handler)
+            handler.directory = directory
+            for url, name in [("/", "index.html"), ("/index.html", "index.html"),
+                              ("/chat.html?engine=wllama", "chat.html"),
+                              ("/experiments.html", "experiments.html"), ("/licenses.html", "licenses.html")]:
+                self.assertEqual(Path(handler.translate_path(url)), root / "html" / name)
+            self.assertEqual(Path(handler.translate_path("/js/chat.js")), root / "js" / "chat.js")
 
 
 class DownloadTests(unittest.TestCase):
@@ -18,7 +54,7 @@ class DownloadTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        with open(Path(downloader.ROOT) / "catalog.json", encoding="utf-8") as source:
+        with open(Path(downloader.ROOT) / "config" / "catalog.json", encoding="utf-8") as source:
             self.catalog = json.load(source)
         self.catalog["tiers"] = {"tiny": self.catalog["tiers"]["tiny"]}
         self.tier = self.catalog["tiers"]["tiny"]
@@ -120,9 +156,9 @@ class DownloadTests(unittest.TestCase):
 
     def test_profile_covers_exact_catalog_builds(self):
         """The classroom profile pins every catalog build with a revision, size or fingerprint."""
-        with open(Path(downloader.ROOT) / "model-downloads.json", encoding="utf-8") as source:
+        with open(Path(downloader.ROOT) / "config" / "model-downloads.json", encoding="utf-8") as source:
             profile = json.load(source)["classroom"]
-        with open(Path(downloader.ROOT) / "catalog.json", encoding="utf-8") as source:
+        with open(Path(downloader.ROOT) / "config" / "catalog.json", encoding="utf-8") as source:
             catalog = json.load(source)
         self.assertEqual(profile["tiers"], list(catalog["tiers"]))
         self.assertEqual(len(profile["revisions"]), len(catalog["tiers"]) * (len(profile["variants"]) + 1))

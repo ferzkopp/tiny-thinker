@@ -1,13 +1,13 @@
 // Chat page: loads the chosen engine, streams replies, runs classroom modes and shows help popups.
-import { ENGINES, CATALOG, modelContextSize, buildModelMessages, describeModel, resolveSource, loadConfig, saveConfig, configToQuery, tierInfo, parameterCount } from './models.js?v=1.3';
-import { detectCapabilities } from './capabilities.js?v=1.3';
-import { wireLicenseLinks } from './licenses.js?v=1.3';
-import { getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle, EXPERIMENT_BADGES, experimentBadgeLevel, recordExperimentInteraction } from './experiments.js?v=1.3';
-import { extractTurtleCode, runTurtle, renderTurtleSvg } from './turtle.js?v=1.3';
-import { renderLoadingLessons } from './loading.js?v=1.3';
-import { renderExperimentCards, renderSetupSummary } from './picker.js?v=1.3';
-import { startTour, TOUR_LENGTH } from './tour.js?v=1.3';
-import { el } from './dom.js?v=1.3';
+import { ENGINES, CATALOG, modelContextSize, buildModelMessages, describeModel, resolveSource, loadConfig, saveConfig, configToQuery, tierInfo, parameterCount } from './models.js?v=1.3.1';
+import { detectCapabilities } from './capabilities.js?v=1.3.1';
+import { wireLicenseLinks } from './licenses.js?v=1.3.1';
+import { getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle, EXPERIMENT_BADGES, experimentBadgeLevel, recordExperimentInteraction } from './experiments.js?v=1.3.1';
+import { extractTurtleCode, runTurtle, renderTurtleSvg } from './turtle.js?v=1.3.1';
+import { renderLoadingLessons } from './loading.js?v=1.3.1';
+import { renderExperimentCards, renderSetupSummary } from './picker.js?v=1.3.1';
+import { startTour, TOUR_LENGTH } from './tour.js?v=1.3.1';
+import { el } from './dom.js?v=1.3.1';
 
 // Key name predates the Tiny Thinker name; changing it would discard settings saved in existing browsers.
 const SETTINGS_KEY = 'browserai.settings';
@@ -860,10 +860,10 @@ async function startEngine() {
 
   try {
     if (config.engine === 'webllm') {
-      const { WebLLMEngine } = await import('./engines/webllm-engine.js?v=1.3');
+      const { WebLLMEngine } = await import('../engines/webllm-engine.js?v=1.3.1');
       engine = new WebLLMEngine();
     } else {
-      const { WllamaEngine } = await import('./engines/wllama-engine.js?v=1.3');
+      const { WllamaEngine } = await import('../engines/wllama-engine.js?v=1.3.1');
       engine = new WllamaEngine();
     }
     const info = await engine.load(resolveSource(config), ({ progress, text }) => {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { EXPERIMENTS } from '../experiments.js';
+import { EXPERIMENTS } from '../js/experiments.js';
 
 const defaultBase = process.env.PREVIEW_URL || 'http://127.0.0.1:8765';
 

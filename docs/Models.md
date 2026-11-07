@@ -18,7 +18,7 @@ Unknown storage and f32 GPUs use smaller starting models. Automatic choices requ
 | medium | Qwen2.5 0.5B | q4f16_1 / q4f32_1 | GGUF Q4_K_M |
 | quality | Qwen2.5 1.5B | q4f16_1 / q4f32_1 | GGUF Q4_K_M |
 
-WebLLM uses f16 when the GPU supports `shader-f16`, otherwise f32. The list lives in [catalog.json](../catalog.json). Libraries load from jsDelivr. Models load from `models/` when self-hosted, otherwise Hugging Face. Browsers can cache downloads but can also evict them.
+WebLLM uses f16 when the GPU supports `shader-f16`, otherwise f32. The list lives in [catalog.json](../config/catalog.json). Libraries load from jsDelivr. Models load from `models/` when self-hosted, otherwise Hugging Face. Browsers can cache downloads but can also evict them.
 
 The classroom download profile prepares all fifteen builds, totaling about **7.3 GB**: SmolLM2 about 1.36 GB, TinyLlama about 1.93 GB and Qwen2.5 about 3.97 GB. Each browser downloads only the model it uses. On weaker devices, choose tiny or small. Quality needs about 1.6-1.9 GB of GPU memory or a 1.1 GB CPU download per device. A direct CPU link is `chat.html?engine=wllama&tier=tiny&experiment=shakespeare`.
 

@@ -3,16 +3,20 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { release } from './release.mjs';
 
-const root = dirname(fileURLToPath(import.meta.url));
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
 export const DEPLOYMENT_FILES = Object.freeze([
-  'index.html', 'experiments.html', 'chat.html', 'licenses.html',
-  'capabilities.js', 'check.js', 'picker.js', 'chat.js', 'dom.js', 'experiments.js',
-  'licenses.js', 'loading.js', 'models.js', 'tour.js', 'turtle.js', 'styles.css',
-  'icon.svg', 'datacenter.svg', 'catalog.json', 'version.json', 'LICENSE', 'robots.txt',
-  'web.config', '.htaccess',
+  'html/index.html', 'html/experiments.html', 'html/chat.html', 'html/licenses.html',
+  'js/capabilities.js', 'js/check.js', 'js/picker.js', 'js/chat.js', 'js/dom.js', 'js/experiments.js',
+  'js/licenses.js', 'js/loading.js', 'js/models.js', 'js/tour.js', 'js/turtle.js', 'css/styles.css',
+  'images/icon.svg', 'images/datacenter.svg', 'config/catalog.json', 'config/version.json', 'LICENSE',
+  'web/robots.txt', 'web/web.config', 'web/.htaccess',
   'engines/webllm-engine.js', 'engines/webllm-worker.js', 'engines/wllama-engine.js',
   'vendor/jslogo/logo.js', 'vendor/jslogo/LICENSE.md', 'vendor/jslogo/LICENSE.txt', 'vendor/jslogo/README.md',
 ]);
+
+export function deploymentPath(file) {
+  return file.replace(/^(?:html|web)[\\/]/, '');
+}
 
 function isWithin(parent, path) {
   const difference = relative(parent, path);
@@ -50,7 +54,7 @@ function collectFiles(directory) {
   const modelsDirectory = join(directory, 'models');
   const manifestPath = join(modelsDirectory, 'manifest.json');
   if (!existsSync(manifestPath)) {
-    throw new Error('Missing models/manifest.json. Prepare models or run python download_models.py --manifest-only first.');
+    throw new Error('Missing models/manifest.json. Prepare models or run python tools/download_models.py --manifest-only first.');
   }
   add('models/manifest.json');
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -97,14 +101,14 @@ export function prepareDeployment({ directory = root, outputRoot = join(director
   }
   const files = collectFiles(directory);
   release(['--check'], directory);
-  const { version } = JSON.parse(readFileSync(join(directory, 'version.json'), 'utf8'));
+  const { version } = JSON.parse(readFileSync(join(directory, 'config', 'version.json'), 'utf8'));
   const bytes = files.reduce((total, file) => total + lstatSync(join(directory, file)).size, 0);
   if (dryRun) return { output: null, version, files, bytes };
   mkdirSync(outputRoot, { recursive: true });
   const output = mkdtempSync(join(outputRoot, `tiny-thinker-${version}-`));
   try {
     for (const file of files) {
-      const destination = join(output, file);
+      const destination = join(output, deploymentPath(file));
       mkdirSync(dirname(destination), { recursive: true });
       copyFileSync(join(directory, file), destination, constants.COPYFILE_EXCL);
     }
@@ -116,7 +120,7 @@ export function prepareDeployment({ directory = root, outputRoot = join(director
 
 function main(args) {
   if (args.length === 1 && args[0] === '--help') {
-    console.log('Usage: node prepare-deployment.mjs [--dry-run] [--output-root DIRECTORY]');
+    console.log('Usage: node tools/prepare-deployment.mjs [--dry-run] [--output-root DIRECTORY]');
     return;
   }
   const options = {};
@@ -127,7 +131,7 @@ function main(args) {
     } else throw new Error(`Unknown or incomplete option: ${args[index]}. Use --help for usage.`);
   }
   const result = prepareDeployment(options);
-  if (options.dryRun) for (const file of result.files) console.log(file.split(sep).join('/'));
+  if (options.dryRun) for (const file of result.files) console.log(deploymentPath(file).split(sep).join('/'));
   console.log(`${options.dryRun ? 'Would copy' : 'Copied'} ${result.files.length} files (${(result.bytes / 1024 ** 3).toFixed(2)} GiB), release ${result.version}.`);
   if (result.output) console.log(`Upload the contents of: ${result.output}`);
 }

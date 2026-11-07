@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { EXPERIMENTS } from '../experiments.js';
+import { EXPERIMENTS } from '../js/experiments.js';
 
 /** Parses CLI options, rejecting unknown names and normalizing boolean flags.
  * @param {string[]} argv Command-line arguments excluding the executable and script.

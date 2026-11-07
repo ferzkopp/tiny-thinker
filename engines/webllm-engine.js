@@ -1,5 +1,5 @@
 // GPU engine adapter around WebLLM (WebGPU). Same interface as WllamaEngine: load, chat, interrupt, unload.
-import { WEBLLM_VERSION } from '../models.js?v=1.3';
+import { WEBLLM_VERSION } from '../js/models.js?v=1.3.1';
 
 const WEBLLM_URL = `https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@${WEBLLM_VERSION}/+esm`;
 
@@ -24,7 +24,7 @@ export class WebLLMEngine {
     }
     // Keep the prebuilt overrides (context size, required features); only swap the download locations.
     const record = source.local ? { ...prebuilt, model: source.modelUrl, model_lib: source.libUrl } : prebuilt;
-    this.worker = new Worker(new URL('./webllm-worker.js?v=1.3', import.meta.url), { type: 'module' });
+    this.worker = new Worker(new URL('./webllm-worker.js?v=1.3.1', import.meta.url), { type: 'module' });
     this.engine = await webllm.CreateWebWorkerMLCEngine(this.worker, source.id, {
       appConfig: { ...webllm.prebuiltAppConfig, model_list: [record] },
       // WebLLM reports e.g. "Loading model from cache[3/12]: ..." without a space before the bracket.

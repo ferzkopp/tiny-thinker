@@ -12,7 +12,7 @@ These are behavior checks for classroom debugging, not general model-quality, ac
 
 - **Models:** SmolLM2 135M (tiny) and 360M (small), TinyLlama 1.1B (balanced), Qwen2.5 0.5B (medium) and Qwen2.5 1.5B (quality).
 - **Engine:** Microsoft Edge, WebLLM 0.2.87 and self-hosted f16 builds.
-- **Same requests as chat:** the evaluator builds messages with the chat page's own `buildModelMessages` in [models.js](../models.js). That includes context trimming, the "never repeat the question" instruction and SmolLM2's repeated instructions in the newest question.
+- **Same requests as chat:** the evaluator builds messages with the chat page's own `buildModelMessages` in [models.js](../js/models.js). That includes context trimming, the "never repeat the question" instruction and SmolLM2's repeated instructions in the newest question.
 - **Main grid:** 34 cases per model across activities 1-13, 170 responses in total. It uses temperature 0 and each preset's reply budget. It covers starter questions, the comparison presets and a few extra probes, such as an unrelated question under the word rule.
 - **Held-out checks:** nine cases that were never used to choose prompts. Each runs twice per model at the classroom preset temperature, 90 responses in total.
 - **Dinner party (activity 14):** four cases per model, three samples each at the preset temperature 0.6, 60 responses in total.

@@ -2,7 +2,7 @@
 
 [Project overview and quickstart](../README.md) | [Preparing models and server configuration](Hosting.md) | [Development](Development.md)
 
-[prepare-deployment.mjs](../prepare-deployment.mjs) copies the uploadable site into a separate local folder. It does not upload files, change the source or delete previous snapshots. Run commands from the repository root with Node.js 22.7+; model preparation also needs Python 3.8+. Neither tool is needed on the deployed server.
+[prepare-deployment.mjs](../tools/prepare-deployment.mjs) copies the uploadable site into a separate local folder. It does not upload files, change the source or delete previous snapshots. Run commands from the repository root with Node.js 22.7+; model preparation also needs Python 3.8+. Neither tool is needed on the deployed server.
 
 ## 1. Prepare and check the release
 
@@ -15,7 +15,7 @@ The helper stages the builds advertised in the existing manifest, not every file
 ## 2. Preview the upload list
 
 ```powershell
-node prepare-deployment.mjs --dry-run
+node tools/prepare-deployment.mjs --dry-run
 ```
 
 This lists the selected files and their total size without creating an output folder. The helper checks release references and required assets, including manifest paths, model licenses and attribution. It rejects symbolic links, missing assets, paths outside `models/` and manifest references to local-only files. These checks do not replace the downloader's readiness check or verify every weight's cryptographic integrity.
@@ -23,18 +23,20 @@ This lists the selected files and their total size without creating an output fo
 ## 3. Create the upload folder
 
 ```powershell
-node prepare-deployment.mjs
+node tools/prepare-deployment.mjs
 ```
 
-The command prints a new folder such as `deployment/tiny-thinker-1.3-AbCdEf/`. Each run creates a different folder, so old releases and any records added to them are not overwritten or deleted. Copying the full classroom set needs roughly another 7.3 GB of disk space per snapshot.
+The command prints a new folder such as `deployment/tiny-thinker-1.3.1-AbCdEf/`. Each run creates a different folder, so old releases and any records added to them are not overwritten or deleted. Copying the full classroom set needs roughly another 7.3 GB of disk space per snapshot.
+
+Regenerate the snapshot after changing the release version or app files. Existing snapshots retain their original asset URLs; upload the newly generated folder's contents, not an earlier release's folder.
 
 The entire `deployment/` directory is excluded by [.gitignore](../.gitignore). Git ignore does not prevent OneDrive or another sync client from uploading it. To keep the output outside a synced repository, choose another output parent:
 
 ```powershell
-node prepare-deployment.mjs --output-root "$env:LOCALAPPDATA\tiny-thinker-deployment"
+node tools/prepare-deployment.mjs --output-root "$env:LOCALAPPDATA\tiny-thinker-deployment"
 ```
 
-On macOS or Linux, use a local path such as `node prepare-deployment.mjs --output-root /tmp/tiny-thinker-deployment`. Custom output parents must be outside the source repository; the default `deployment/` is the only supported in-repository output parent.
+On macOS or Linux, use a local path such as `node tools/prepare-deployment.mjs --output-root /tmp/tiny-thinker-deployment`. Custom output parents must be outside the source repository; the default `deployment/` is the only supported in-repository output parent.
 
 If copying fails, the incomplete folder is retained and identified in the error. Do not upload that folder. Fix the cause, such as insufficient disk space, and rerun to create a fresh snapshot. Remove old snapshots yourself only after checking that you no longer need their contents.
 
@@ -42,8 +44,8 @@ If copying fails, the incomplete folder is retained and identified in the error.
 
 The helper uses an explicit app-file allowlist plus the model manifest. It includes:
 
-- The four app pages, runtime JavaScript, stylesheet, icons, catalog, release manifest, robots rules and project license.
-- [.htaccess](../.htaccess) and [web.config](../web.config); each host ignores the other's configuration.
+- The four source pages from `html/`, copied to the upload root so page URLs stay unchanged. Runtime files retain their `js/`, `css/`, `images/` and `config/` folders; the project license stays at the root.
+- [robots.txt](../web/robots.txt), [.htaccess](../web/.htaccess) and [web.config](../web/web.config), copied from `web/` to the upload root. Each host ignores the other's server configuration.
 - Both engine adapters, the WebLLM worker, and the vendored Logo interpreter with its licenses and attribution notes.
 - `models/manifest.json`, advertised GGUF weights, advertised WebLLM model directories and compiled libraries, model licenses, attribution and available `NOTICE` files.
 
@@ -51,7 +53,7 @@ It excludes `.git/`, local environments, development scripts, README and guides,
 
 A Git checkout or `git archive` does not contain ignored model payloads and cannot replace a snapshot of the prepared site.
 
-If a new runtime asset is added to the app, update `DEPLOYMENT_FILES` in the helper as part of that change. Additional model files inside an advertised WebLLM model directory are included automatically, except local-only files.
+If a new runtime asset is added to the app, update `DEPLOYMENT_FILES` in the helper as part of that change. Additional model files inside an advertised WebLLM model directory are included automatically, except local-only files. See [Repository layout](Development.md#repository-layout) for source-folder ownership.
 
 ## 4. Upload and verify
 

@@ -17,15 +17,15 @@
   <!-- Not useful as a search result: it needs a device setup and otherwise redirects to index.html. -->
   <meta name="robots" content="noindex, follow">
   <meta name="theme-color" content="#2f6fde">
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="icon" href="images/icon.svg" type="image/svg+xml">
   <link rel="license" href="https://opensource.org/license/mit">
-  <link rel="stylesheet" href="styles.css?v=1.3">
-  <script type="module" src="chat.js?v=1.3"></script>
+  <link rel="stylesheet" href="css/styles.css?v=1.3.1">
+  <script type="module" src="js/chat.js?v=1.3.1"></script>
 </head>
 <body class="chat">
   <a class="skip-link" href="#log">Skip to the chat</a>
   <header class="top">
-    <h1 class="brand"><img src="icon.svg" alt="" width="32" height="32"> Tiny Thinker <small class="app-version">v1.3</small></h1>
+    <h1 class="brand"><img src="images/icon.svg" alt="" width="32" height="32"> Tiny Thinker <small class="app-version">v1.3.1</small></h1>
     <div class="model-info">
       <span id="model-status" class="model-status loading" role="status">Loading</span>
       <span id="setup-badge" class="badge">Loading…</span>
@@ -165,7 +165,7 @@
 
   <dialog id="load-panel" class="load-overlay" aria-labelledby="load-title" aria-describedby="load-text" autofocus>
     <div class="load-head">
-      <img class="load-icon" src="icon.svg" alt="" width="56" height="56">
+      <img class="load-icon" src="images/icon.svg" alt="" width="56" height="56">
       <div class="load-status">
         <h2 id="load-title">Waking up the model…</h2>
         <progress id="load-progress" max="1" value="0" aria-labelledby="load-title"></progress>

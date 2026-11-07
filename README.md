@@ -1,4 +1,4 @@
-<p align="center"><img src="icon.svg" width="112" height="112" alt="Tiny Thinker icon: a small yellow robot with a thought bubble"></p>
+<p align="center"><img src="images/icon.svg" width="112" height="112" alt="Tiny Thinker icon: a small yellow robot with a thought bubble"></p>
 
 # Tiny Thinker: Classroom LLM Playground
 
@@ -26,16 +26,16 @@ Requirements: Python 3.8+, a modern browser with WebAssembly SIMD, and internet 
 From the cloned repository folder:
 
 ```powershell
-python serve.py --isolate
+python tools/serve.py --isolate
 ```
 
-Open http://localhost:8000, choose a setup, pick an experiment and start chatting. Use `--port 8001` if the default port is busy. Opening HTML directly with `file://` does not work.
+Open http://localhost:8000, choose a setup, pick an experiment and start chatting. Use `--port 8001` if the default port is busy. The preview tool maps the organized source folders to the app's public URLs; opening HTML directly with `file://` does not work.
 
 Missing model builds load from Hugging Face when selected. To prepare all models for classroom use before starting the server:
 
 ```powershell
-python download_models.py --profile classroom
-python download_models.py --profile classroom --check
+python tools/download_models.py --profile classroom
+python tools/download_models.py --profile classroom --check
 ```
 
 Allow about 8 GB of free disk space for the roughly 7.3 GB classroom set. Each browser downloads only its selected model. See [Hosting](docs/Hosting.md) for smaller downloads, remote deployment and server configuration.
@@ -60,4 +60,4 @@ Use fictional inputs and teacher supervision. Small models can produce wrong or 
 
 Tiny Thinker is [MIT licensed](LICENSE), created by Andreas Schiffler. AI assistance from OpenAI GPT 6.1 Sol, Anthropic Claude 5.5, Google Gemini 4 Argon and MAI-Code-2-Flash supported research, design, code, tests and documentation, reviewed and directed by the author.
 
-The app's models (SmolLM2, TinyLlama, Qwen2.5), engines (WebLLM, wllama) and local Logo interpreter are separate open-source projects. See [model and software licenses](licenses.html).
+The app's models (SmolLM2, TinyLlama, Qwen2.5), engines (WebLLM, wllama) and local Logo interpreter are separate open-source projects. See [model and software licenses](html/licenses.html).

@@ -1,14 +1,14 @@
 // Device check page (step 1): probes the browser, recommends an engine and model, then forwards to the
 // experiment picker, or straight to the chat when the link names an experiment or came from the chat.
-import { detectCapabilities } from './capabilities.js?v=1.3';
+import { detectCapabilities } from './capabilities.js?v=1.3.1';
 import {
   ENGINES, TIERS, tierInfo, parameterCount, countLocalModels,
   recommend, incompatibility, webllmVariant, describeModel, configToQuery, saveConfig, loadConfig,
-} from './models.js?v=1.3';
-import { wireLicenseLinks } from './licenses.js?v=1.3';
-import { EXPERIMENTS, getExperiment, withExperiment, numberedTitle } from './experiments.js?v=1.3';
-import { showWelcome, startTour, tourProgress } from './tour.js?v=1.3';
-import { el } from './dom.js?v=1.3';
+} from './models.js?v=1.3.1';
+import { wireLicenseLinks } from './licenses.js?v=1.3.1';
+import { EXPERIMENTS, getExperiment, withExperiment, numberedTitle } from './experiments.js?v=1.3.1';
+import { showWelcome, startTour, tourProgress } from './tour.js?v=1.3.1';
+import { el } from './dom.js?v=1.3.1';
 
 const COUNTDOWN_SECONDS = 5;
 const $ = (id) => document.getElementById(id);

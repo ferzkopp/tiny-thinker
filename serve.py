@@ -6,6 +6,7 @@ import argparse
 import functools
 import http.server
 import os
+from urllib.parse import urlsplit, urlunsplit
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -18,6 +19,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         ".mjs": "text/javascript",
         ".wasm": "application/wasm",
     }
+
+    def translate_path(self, path):
+        parsed = urlsplit(path)
+        name = "index.html" if parsed.path == "/" else parsed.path.lstrip("/")
+        if name in ("index.html", "experiments.html", "chat.html", "licenses.html"):
+            page = os.path.join(self.directory, "html", name)
+            if os.path.isfile(page):
+                return page
+        return super().translate_path(path)
+
+    def send_head(self):
+        parsed = urlsplit(self.path)
+        if parsed.path.startswith("/html/"):
+            name = parsed.path[len("/html/"):]
+            if name in ("index.html", "experiments.html", "chat.html", "licenses.html"):
+                self.send_response(302)
+                self.send_header("Location", urlunsplit(("", "", "/" + name, parsed.query, "")))
+                self.end_headers()
+                return None
+        return super().send_head()
 
     def end_headers(self):
         """Adds Cache-Control (so edits show up on reload) and, if enabled, COOP/COEP before the body."""

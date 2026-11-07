@@ -1,6 +1,6 @@
-import { ENGINES, tierInfo, parameterCount } from './models.js?v=1.3';
-import { numberedTitle } from './experiments.js?v=1.3';
-import { el } from './dom.js?v=1.3';
+import { ENGINES, tierInfo, parameterCount } from './models.js?v=1.3.1';
+import { numberedTitle } from './experiments.js?v=1.3.1';
+import { el } from './dom.js?v=1.3.1';
 
 const PHASES = [
   { title: 'Get the engine' },

@@ -1,7 +1,7 @@
 // Model catalog, self-hosting manifest, device-based recommendation and the saved setup (engine/tier/variant).
 
-const CATALOG_URL = new URL('./catalog.json', import.meta.url);
-export const MODELS_BASE = new URL('./models/', import.meta.url);
+const CATALOG_URL = new URL('../config/catalog.json', import.meta.url);
+export const MODELS_BASE = new URL('../models/', import.meta.url);
 
 export const CATALOG = await (await fetch(CATALOG_URL, { cache: 'no-cache' })).json();
 

@@ -29,7 +29,7 @@ try {
   assert.equal(await page.locator('a[href$="Classroom.md" i]').count(), 0, 'no teacher guide link');
   assert.equal(await page.locator('select').count(), 0, 'chat header has no selectors');
   assert.ok(await page.locator('header .brand img').evaluate((image) => image.complete && image.naturalWidth > 0), 'icon loads');
-  assert.equal(await page.locator('link[rel="icon"]').getAttribute('href'), 'icon.svg');
+  assert.equal(await page.locator('link[rel="icon"]').getAttribute('href'), 'images/icon.svg');
   await page.screenshot({ path: 'test-results/free-chat.png' });
   assert.equal(await page.locator('#model-status').textContent(), 'Ready');
   assert.match(await page.locator('#setup-badge').textContent(), /SmolLM2 135M \(tiny\)/, 'header shows model name and tier');
@@ -465,7 +465,7 @@ try {
   assert.equal(await statePage.locator('#load-panel').evaluate((dialog) => getComputedStyle(dialog).backgroundColor), 'rgb(255, 255, 255)', 'loading status area is white');
   const iconPage = await stateContext.newPage();
   await iconPage.setViewportSize({ width: 192, height: 192 });
-  await iconPage.goto(`${base}/icon.svg`);
+  await iconPage.goto(`${base}/images/icon.svg`);
   const blinkAnimations = await iconPage.evaluate(() => {
     const animations = document.getAnimations();
     // 0.8% of the 11 s cycle is the eyes' first closed frame.
@@ -614,7 +614,7 @@ try {
   await cold.waitForURL('**/index.html?experiment=creativity');
   await cold.locator('#go-now').waitFor({ state: 'visible' });
   const recommendations = await cold.evaluate(async () => {
-    const { recommend, incompatibility, CATALOG } = await import('./models.js?v=1.3');
+    const { recommend, incompatibility, CATALOG } = await import('./js/models.js?v=1.3.1');
     const caps = { wasm: true, wasmSimd: true, secureContext: true, webgpu: { available: true, f16: true, maxBufferMB: 2048 }, deviceMemoryGB: 8, mobile: false, cores: 8, threads: true, storageFreeMB: 10000 };
     const mediumHeadroom = CATALOG.tiers.medium.webllm.f16.vramMB * 2 + 256;
     return {
@@ -874,7 +874,7 @@ try {
   assert.deepEqual(await first.evaluate(() => JSON.parse(localStorage.getItem('tinythinker.experiment-hints'))), ['shakespeare@1']);
   const migrated = await first.evaluate(async () => {
     localStorage.setItem('tinythinker.experiment-hints', JSON.stringify(['shakespeare']));
-    const { hintSeen } = await import('./tour.js?v=1.3');
+    const { hintSeen } = await import('./js/tour.js?v=1.3.1');
     return {
       seen: hintSeen('shakespeare@1'),
       keys: JSON.parse(localStorage.getItem('tinythinker.experiment-hints')),
@@ -913,7 +913,7 @@ try {
   await skipper.goto(`${base}/index.html?manual=1`);
   await skipper.locator('#override').waitFor({ state: 'visible' });
   assert.equal(await skipper.locator('.tour:not(.hidden)').count(), 0, 'completed older tours do not restart after adding a tip');
-  assert.equal(await skipper.evaluate(async () => (await import('./tour.js?v=1.3')).tourProgress()), 6, 'older completed progress maps to the new final step');
+  assert.equal(await skipper.evaluate(async () => (await import('./js/tour.js?v=1.3.1')).tourProgress()), 6, 'older completed progress maps to the new final step');
   await skipContext.clearCookies({ name: 'tinythinker_tour_v2' });
   await skipContext.clearCookies({ name: 'tinythinker_tour' });
   await skipContext.addCookies([{ name: 'tinythinker_tour_v2', value: '0', url: base }, { name: 'tinythinker_welcome', value: '1', url: base }]);

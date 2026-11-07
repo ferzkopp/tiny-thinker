@@ -5,13 +5,13 @@ models/manifest.json is rebuilt from what is complete on disk; the web app reads
 to decide between the self-hosted copy and Hugging Face.
 
 Usage:
-    python download_models.py --profile classroom          # all classroom builds, pinned revisions (~7.3 GB)
-  python download_models.py --profile classroom --check  # check local files without network or changes
-  python download_models.py                              # every build, latest upstream revisions
-  python download_models.py --tiers tiny small           # only some tiers
-  python download_models.py --engines gguf               # only the wllama (CPU) builds
-  python download_models.py --variants f16               # only half-precision WebLLM builds
-  python download_models.py --manifest-only              # just rebuild manifest.json
+    python tools/download_models.py --profile classroom          # all classroom builds, pinned revisions (~7.3 GB)
+  python tools/download_models.py --profile classroom --check  # check local files without network or changes
+  python tools/download_models.py                              # every build, latest upstream revisions
+  python tools/download_models.py --tiers tiny small           # only some tiers
+  python tools/download_models.py --engines gguf               # only the wllama (CPU) builds
+  python tools/download_models.py --variants f16               # only half-precision WebLLM builds
+  python tools/download_models.py --manifest-only              # just rebuild manifest.json
 """
 import argparse
 import datetime
@@ -27,7 +27,7 @@ import urllib.request
 HF = "https://huggingface.co"
 APACHE_TEXT_URL = "https://www.apache.org/licenses/LICENSE-2.0.txt"
 USER_AGENT = "TinyThinker-model-downloader/1.0"
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COMPLETE_MARKER = ".complete"
 
 
@@ -425,7 +425,7 @@ def build_manifest(models_dir, catalog):
 
 def main():
     """Parses arguments, then checks, downloads or only rebuilds the manifest. Returns the exit code."""
-    with open(os.path.join(ROOT, "catalog.json"), encoding="utf-8") as f:
+    with open(os.path.join(ROOT, "config", "catalog.json"), encoding="utf-8") as f:
         catalog = json.load(f)
     tiers = list(catalog["tiers"])
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -444,7 +444,7 @@ def main():
     if args.profile:
         if any((args.tiers, args.engines, args.variants)):
             parser.error("--profile cannot be combined with --tiers, --engines or --variants")
-        with open(os.path.join(ROOT, "model-downloads.json"), encoding="utf-8") as source:
+        with open(os.path.join(ROOT, "config", "model-downloads.json"), encoding="utf-8") as source:
             profile = json.load(source)[args.profile]
     args.tiers = (profile or {}).get("tiers", args.tiers or tiers)
     args.engines = (profile or {}).get("engines", args.engines or ["webllm", "gguf"])

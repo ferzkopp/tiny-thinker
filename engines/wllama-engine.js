@@ -1,5 +1,5 @@
 // CPU engine adapter around wllama (llama.cpp compiled to WebAssembly). Same interface as WebLLMEngine.
-import { WLLAMA_VERSION } from '../models.js?v=1.3';
+import { WLLAMA_VERSION } from '../js/models.js?v=1.3.1';
 
 const BASE = `https://cdn.jsdelivr.net/npm/@wllama/wllama@${WLLAMA_VERSION}/esm`;
 const PATHS = { default: `${BASE}/wasm/wllama.wasm` };

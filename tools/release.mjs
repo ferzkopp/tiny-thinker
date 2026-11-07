@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const root = dirname(fileURLToPath(import.meta.url));
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 /** Stamps cache-version and app-version text in a source string.
  * @param {string} source Source text to update.
@@ -21,8 +21,8 @@ export function updateVersionReferences(source, version) {
  * @returns {void}
  */
 export function release(args = [], directory = root) {
-  if (args.length > 1) throw new Error('Usage: node release.mjs [version | --check]');
-  const manifestPath = join(directory, 'version.json');
+  if (args.length > 1) throw new Error('Usage: node tools/release.mjs [version | --check]');
+  const manifestPath = join(directory, 'config', 'version.json');
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   const checkOnly = args[0] === '--check';
   const version = checkOnly || !args.length ? manifest.version : args[0];
@@ -30,7 +30,7 @@ export function release(args = [], directory = root) {
     throw new Error('Release version must have the form major.minor or major.minor.patch');
   }
   const files = [
-    ...readdirSync(directory).filter((name) => /\.(html|js|css)$/.test(name)).map((name) => join(directory, name)),
+    ...['html', 'js', 'css'].flatMap((folder) => readdirSync(join(directory, folder)).filter((name) => /\.(html|js|css)$/.test(name)).map((name) => join(directory, folder, name))),
     ...readdirSync(join(directory, 'engines')).filter((name) => name.endsWith('.js')).map((name) => join(directory, 'engines', name)),
     join(directory, 'tests', 'browser-smoke.mjs'),
     join(directory, 'tests', 'prompt-grid.mjs'),

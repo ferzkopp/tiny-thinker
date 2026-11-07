@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { EXPERIMENTS } from '../experiments.js';
-import { extractTurtleCode, runTurtle } from '../turtle.js';
+import { EXPERIMENTS } from '../js/experiments.js';
+import { extractTurtleCode, runTurtle } from '../js/turtle.js';
 import { parseGridOptions, summarizeGrid } from './prompt-grid-helpers.mjs';
 
 const options = parseGridOptions(process.argv.slice(2));
@@ -207,8 +207,8 @@ try {
     await page.goto(`${base}/licenses.html`);
     console.log(`LOAD ${engineName} ${tier}`);
     await page.evaluate(async ({ engineName, tier, variant }) => {
-      const { resolveSource, modelContextSize } = await import('./models.js?v=1.3');
-      const module = await import(`./engines/${engineName}-engine.js?v=1.3`);
+      const { resolveSource, modelContextSize } = await import('./js/models.js?v=1.3.1');
+      const module = await import(`./engines/${engineName}-engine.js?v=1.3.1`);
       const config = { engine: engineName, tier, variant };
       window.gridEngine = new module[engineName === 'webllm' ? 'WebLLMEngine' : 'WllamaEngine']();
       await window.gridEngine.load(resolveSource(config), () => {}, { contextSize: modelContextSize(config) });
@@ -221,7 +221,7 @@ try {
         assert.ok(preset, `Missing reference settings: ${tier} ${scenario.label}`);
         const settings = { ...preset, temperature: options.sampling === 'preset' ? preset.temperature : 0 };
         const messages = await page.evaluate(async ({ engineName, tier, variant, settings, history }) => {
-          const { buildModelMessages } = await import('./models.js?v=1.3');
+          const { buildModelMessages } = await import('./js/models.js?v=1.3.1');
           return buildModelMessages({ engine: engineName, tier, variant }, settings, history);
         }, { engineName, tier, variant: options.variant, settings, history: [...scenario.history, { role: 'user', content: scenario.prompt }] });
         let response;

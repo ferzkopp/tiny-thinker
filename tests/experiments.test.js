@@ -6,14 +6,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { EXPERIMENTS, getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, experimentBadgeLevel, recordExperimentInteraction, resetExperimentProgress } from '../experiments.js';
-import { extractTurtleCode, parseTurtle, runTurtle } from '../turtle.js';
-import { release, updateVersionReferences } from '../release.mjs';
+import { EXPERIMENTS, getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, experimentBadgeLevel, recordExperimentInteraction, resetExperimentProgress } from '../js/experiments.js';
+import { extractTurtleCode, parseTurtle, runTurtle } from '../js/turtle.js';
+import { release, updateVersionReferences } from '../tools/release.mjs';
 import { parseGridOptions } from './prompt-grid-helpers.mjs';
-import { DEPLOYMENT_FILES, prepareDeployment } from '../prepare-deployment.mjs';
+import { DEPLOYMENT_FILES, deploymentPath, prepareDeployment } from '../tools/prepare-deployment.mjs';
 
 test('TinyLlama has both GPU precisions, a CPU build and its native context limit', () => {
-  const catalog = JSON.parse(readFileSync(new URL('../catalog.json', import.meta.url), 'utf8'));
+  const catalog = JSON.parse(readFileSync(new URL('../config/catalog.json', import.meta.url), 'utf8'));
   const model = catalog.tiers.balanced;
   assert.equal(model.upstream, 'TinyLlama/TinyLlama-1.1B-Chat-v1.0');
   assert.equal(catalog.families[model.family].license, 'Apache-2.0');
@@ -37,7 +37,7 @@ test('TinyLlama setups resolve for both engines without changing existing contex
   });
   let models;
   try {
-    models = await import('../models.js');
+    models = await import('../js/models.js');
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -61,7 +61,7 @@ test('TinyLlama setups resolve for both engines without changing existing contex
 });
 
 test('evaluation and chat share message construction without mutating conversation history', async () => {
-  const { buildModelMessages } = await import('../models.js');
+  const { buildModelMessages } = await import('../js/models.js');
   const settings = { systemPrompt: 'Give one hint.', maxTokens: 144 };
   const history = [{ role: 'user', content: 'How do I start?' }];
   const small = buildModelMessages({ engine: 'wllama', tier: 'small' }, settings, history);
@@ -155,7 +155,7 @@ test('grid selections reject empty matches before loading Playwright', () => {
 });
 
 test('evaluation tools do not pin stale app module cache versions', () => {
-  const { version } = JSON.parse(readFileSync(new URL('../version.json', import.meta.url), 'utf8'));
+  const { version } = JSON.parse(readFileSync(new URL('../config/version.json', import.meta.url), 'utf8'));
   const source = readFileSync(new URL('./prompt-grid.mjs', import.meta.url), 'utf8');
   for (const match of source.matchAll(/[?&]v=(\d+\.\d+(?:\.\d+)?)/g)) {
     assert.equal(match[1], version, 'committed evaluator uses the current cache version');
@@ -165,7 +165,7 @@ test('evaluation tools do not pin stale app module cache versions', () => {
 test('optional local role evaluator uses the current cache version', {
   skip: !existsSync(new URL('../test-results/role-dialog.mjs', import.meta.url)),
 }, () => {
-  const { version } = JSON.parse(readFileSync(new URL('../version.json', import.meta.url), 'utf8'));
+  const { version } = JSON.parse(readFileSync(new URL('../config/version.json', import.meta.url), 'utf8'));
   const source = readFileSync(new URL('../test-results/role-dialog.mjs', import.meta.url), 'utf8');
   for (const match of source.matchAll(/[?&]v=(\d+\.\d+(?:\.\d+)?)/g)) {
     assert.equal(match[1], version, 'local evaluator uses the current cache version');
@@ -173,7 +173,7 @@ test('optional local role evaluator uses the current cache version', {
 });
 
 test('release labels and the entire local module graph use the same cache version', () => {
-  const { version } = JSON.parse(readFileSync(new URL('../version.json', import.meta.url), 'utf8'));
+  const { version } = JSON.parse(readFileSync(new URL('../config/version.json', import.meta.url), 'utf8'));
   const visited = new Set();
   function checkModule(moduleUrl) {
     assert.equal(moduleUrl.search, `?v=${version}`, moduleUrl.href);
@@ -186,13 +186,13 @@ test('release labels and the entire local module graph use the same cache versio
     }
   }
   for (const page of ['index.html', 'experiments.html', 'chat.html', 'licenses.html']) {
-    const pageUrl = new URL(`../${page}`, import.meta.url);
+    const pageUrl = new URL(`../html/${page}`, import.meta.url);
     const html = readFileSync(pageUrl, 'utf8');
     assert.ok(html.includes(`<small class="app-version">v${version}</small>`), page);
-    assert.ok(html.includes(`href="styles.css?v=${version}"`), page);
+    assert.ok(html.includes(`href="css/styles.css?v=${version}"`), page);
     const script = html.match(/<script type="module" src="([^"]+)"/);
     assert.ok(script, page);
-    checkModule(new URL(script[1], pageUrl));
+    checkModule(new URL(script[1], new URL('../', import.meta.url)));
   }
 });
 
@@ -207,16 +207,16 @@ test('release stamping changes only cache tokens and release labels, not model n
 test('release command detects stale references without writing and stamps from one manifest', () => {
   const directory = mkdtempSync(join(tmpdir(), 'tiny-thinker-release-'));
   try {
-    mkdirSync(join(directory, 'engines'));
+    for (const folder of ['config', 'html', 'js', 'css', 'engines']) mkdirSync(join(directory, folder));
     mkdirSync(join(directory, 'tests'));
     mkdirSync(join(directory, 'models'));
-    const manifestPath = join(directory, 'version.json');
+    const manifestPath = join(directory, 'config', 'version.json');
     writeFileSync(manifestPath, JSON.stringify({ version: '1.2' }));
     const fixtures = new Map([
-      ['index.html', '<small class="app-version">v1.1</small><link href="styles.css?v=1.1">'],
-      ['chat.js', 'import "./models.js?v=1.1";'],
+      [join('html', 'index.html'), '<small class="app-version">v1.1</small><link href="styles.css?v=1.1">'],
+      [join('js', 'chat.js'), 'import "./js/models.js?v=1.1";'],
       [join('engines', 'engine.js'), 'new Worker("./worker.js?v=1.1");'],
-      [join('tests', 'browser-smoke.mjs'), 'import("./tour.js?v=1.1");'],
+      [join('tests', 'browser-smoke.mjs'), 'import("./js/tour.js?v=1.1");'],
     ]);
     for (const [file, source] of fixtures) writeFileSync(join(directory, file), source);
     const modelPath = join(directory, 'models', 'metadata.json');
@@ -248,7 +248,7 @@ test('deployment snapshots include runtime, manifest models and licenses but exc
       writeFileSync(join(directory, file), contents);
     };
     for (const file of DEPLOYMENT_FILES) fixture(file);
-    fixture('version.json', JSON.stringify({ version: '1.3' }));
+    fixture('config/version.json', JSON.stringify({ version: '1.3' }));
     const build = { path: 'gguf/tiny/model.gguf', licenseFile: 'gguf/tiny/LICENSE', attributionFile: 'gguf/tiny/ATTRIBUTION.txt' };
     const gpu = { model: 'webllm/tiny/resolve/main/', lib: 'webllm/libs/tiny.wasm',
       licenseFile: 'webllm/tiny/LICENSE', attributionFile: 'webllm/tiny/ATTRIBUTION.txt' };
@@ -258,18 +258,28 @@ test('deployment snapshots include runtime, manifest models and licenses but exc
       'webllm/tiny/resolve/main/mlc-chat-config.json', 'webllm/tiny/resolve/main/tokenizer.json', 'webllm/tiny/resolve/main/params_shard_0.bin',
       'webllm/tiny/resolve/main/params_shard_1.bin.part', 'webllm/tiny/resolve/main/.complete', 'webllm/tiny/resolve/main/.inventory.json',
       'webllm/tiny/resolve/main/params_shard_0.bin.revision']) fixture(`models/${file}`);
-    for (const file of ['test-results/notes.txt', 'node_modules/private.js', 'scratch.js', 'serve.py', 'models/unused/model.gguf', 'models/gguf/tiny/model.gguf.part']) fixture(file);
+    for (const file of ['test-results/notes.txt', 'node_modules/private.js', 'scratch.js', 'tools/serve.py', 'tools/release.mjs', 'models/unused/model.gguf', 'models/gguf/tiny/model.gguf.part']) fixture(file);
     const preview = prepareDeployment({ directory, dryRun: true });
     assert.equal(preview.output, null);
     assert.equal(existsSync(join(directory, 'deployment')), false, 'dry run creates no output folder');
     const first = prepareDeployment({ directory });
     assert.deepEqual(first.files, preview.files);
-    for (const file of first.files) assert.deepEqual(readFileSync(join(first.output, file)), readFileSync(join(directory, file)));
+    for (const file of first.files) assert.deepEqual(readFileSync(join(first.output, deploymentPath(file))), readFileSync(join(directory, file)));
+    assert.equal(existsSync(join(first.output, 'index.html')), true, 'staged pages retain their public URLs');
+    assert.equal(existsSync(join(first.output, 'html')), false, 'source HTML directory is flattened for upload');
+    assert.equal(existsSync(join(first.output, 'web')), false, 'source server directory is flattened for upload');
+    for (const file of ['robots.txt', '.htaccess', 'web.config']) {
+      assert.deepEqual(readFileSync(join(first.output, file)), readFileSync(join(directory, 'web', file)));
+    }
+    assert.equal(existsSync(join(first.output, 'js', 'models.js')), true);
+    assert.equal(existsSync(join(first.output, 'css', 'styles.css')), true);
+    assert.equal(existsSync(join(first.output, 'images', 'icon.svg')), true);
+    assert.equal(existsSync(join(first.output, 'config', 'catalog.json')), true);
     assert.ok(first.files.includes(join('models', 'gguf', 'tiny', 'NOTICE')));
     assert.ok(first.files.includes(join('models', 'webllm', 'tiny', 'resolve', 'main', 'params_shard_0.bin')));
     assert.ok(first.files.includes(join('models', 'webllm', 'libs', 'tiny.wasm')));
     assert.equal(first.files.some((file) => /\.part$|\.revision$|\.complete$|\.inventory\.json$/.test(file)), false);
-    for (const file of ['test-results', 'node_modules', 'scratch.js', 'serve.py', 'models/unused', 'models/gguf/tiny/model.gguf.part']) {
+    for (const file of ['test-results', 'node_modules', 'scratch.js', 'tools', 'models/unused', 'models/gguf/tiny/model.gguf.part']) {
       assert.equal(existsSync(join(first.output, file)), false, file);
     }
     writeFileSync(join(first.output, 'keep.txt'), 'user-added record');
@@ -277,7 +287,7 @@ test('deployment snapshots include runtime, manifest models and licenses but exc
     assert.notEqual(first.output, second.output);
     assert.equal(readFileSync(join(first.output, 'keep.txt'), 'utf8'), 'user-added record');
     assert.throws(() => prepareDeployment({ directory, outputRoot: join(directory, 'models') }), /outside the source/);
-    fixture('models/manifest.json', JSON.stringify({ webllm: {}, gguf: { tiny: { ...build, path: '../version.json' } } }));
+    fixture('models/manifest.json', JSON.stringify({ webllm: {}, gguf: { tiny: { ...build, path: '../config/version.json' } } }));
     assert.throws(() => prepareDeployment({ directory, dryRun: true }), /escapes models/);
     fixture('models/manifest.json', JSON.stringify({ webllm: {}, gguf: { tiny: { ...build, path: 'gguf/tiny/model.gguf.part' } } }));
     assert.throws(() => prepareDeployment({ directory, dryRun: true }), /local-only asset/);
@@ -286,7 +296,7 @@ test('deployment snapshots include runtime, manifest models and licenses but exc
     rmSync(join(directory, 'models', 'manifest.json'));
     assert.throws(() => prepareDeployment({ directory, dryRun: true }), /Missing models\/manifest.json/);
     fixture('models/manifest.json', JSON.stringify({ webllm: {}, gguf: {} }));
-    fixture('index.html', '<small class="app-version">v1.2</small>');
+    fixture('html/index.html', '<small class="app-version">v1.2</small>');
     assert.throws(() => prepareDeployment({ directory, dryRun: true }), /stale references/);
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -294,7 +304,7 @@ test('deployment snapshots include runtime, manifest models and licenses but exc
 });
 
 test('deployment CLI documents options and rejects unknown or incomplete flags', () => {
-  const script = fileURLToPath(new URL('../prepare-deployment.mjs', import.meta.url));
+  const script = fileURLToPath(new URL('../tools/prepare-deployment.mjs', import.meta.url));
   const help = spawnSync(process.execPath, [script, '--help'], { encoding: 'utf8' });
   assert.equal(help.status, 0);
   assert.match(help.stdout, /--dry-run.*--output-root/);
