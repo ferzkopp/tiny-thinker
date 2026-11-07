@@ -1,6 +1,6 @@
-import { ENGINES, tierInfo, parameterCount } from './models.js?v=1.2';
-import { numberedTitle } from './experiments.js?v=1.2';
-import { el } from './dom.js?v=1.2';
+import { ENGINES, tierInfo, parameterCount } from './models.js?v=1.3';
+import { numberedTitle } from './experiments.js?v=1.3';
+import { el } from './dom.js?v=1.3';
 
 const PHASES = [
   { title: 'Get the engine' },
@@ -9,7 +9,11 @@ const PHASES = [
   { title: 'Ready' },
 ];
 
-/** Section with a heading. */
+/** Creates a loading-dialog information section.
+ * @param {string} title Section heading.
+ * @param {...(Node|string)} children Section content.
+ * @returns {HTMLElement} Section element.
+ */
 function section(title, ...children) {
   return el('section', { className: 'lesson' }, el('h3', { textContent: title }), ...children);
 }

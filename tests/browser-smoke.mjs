@@ -3,96 +3,13 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { chooseExperiment, finish, noOverflow, prepare, ready, skipTour } from './browser-smoke-helpers.mjs';
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
 const base = process.env.PREVIEW_URL || 'http://127.0.0.1:8765';
 const browser = await chromium.launch({ headless: true });
 const errors = [];
-const fakeEngine = `
-class FakeEngine {
-  async load(source, onProgress, options) {
-    window.__loads = (window.__loads || 0) + 1;
-    window.__loadedModel = { source, options };
-    if (window.__failGpu && import.meta.url.includes('webllm')) throw new Error('test GPU unavailable');
-    if (window.__failQuota) throw new DOMException('Quota exceeded', 'QuotaExceededError');
-    if (window.__failLoad) throw new Error('test model missing');
-    if (window.__holdLoad) await new Promise((resolve) => { window.__releaseLoad = resolve; });
-    return { detail: 'test engine' };
-  }
-  chat(messages, settings, onToken) {
-    window.__calls ||= [];
-    window.__calls.push({ messages, settings });
-    return new Promise((resolve, reject) => {
-      window.__finish = (text = 'Test reply') => { onToken(text); resolve({ text, finishReason: 'stop' }); };
-      window.__reject = () => reject(new Error('late test failure'));
-      onToken('Working...');
-    });
-  }
-  interrupt() { window.__interrupted = true; window.__reject?.(); }
-  async unload() { window.__unloads = (window.__unloads || 0) + 1; }
-}
-export { FakeEngine as WllamaEngine, FakeEngine as WebLLMEngine };
-`;
-
-/** Marks the first-run tips as finished, so they do not cover controls in tests about other features. */
-async function skipTour(context) {
-  await context.addCookies([
-    { name: 'tinythinker_tour_v2', value: '6', url: base },
-    { name: 'tinythinker_welcome', value: '1', url: base },
-  ]);
-}
-
-/** Serves the fake engine instead of the real adapters, so tests control timing and replies. */
-async function prepare(context, { tour = false } = {}) {
-  await context.route(/\/engines\/[^/?]+-engine\.js(?:\?.*)?$/, (route) => route.fulfill({ contentType: 'text/javascript', body: fakeEngine }));
-  if (!tour) await skipTour(context);
-}
-
-/** Waits until the model is loaded and Send is enabled. */
-async function ready(page) {
-  await page.waitForFunction(() => !document.querySelector('#send').disabled);
-}
-
-/** Completes the fake reply currently streaming, then waits for the chat to be ready again. */
-async function finish(page, text = 'Test reply') {
-  await page.evaluate((reply) => window.__finish(reply), text);
-  await ready(page);
-}
-
-async function chooseExperiment(page, id) {
-  const before = await page.evaluate(() => ({ loads: window.__loads, document: performance.timeOrigin }));
-  await page.locator('#journey-experiments').click();
-  if (await page.locator('#leave-confirm').isVisible()) await page.locator('#leave-continue').click();
-  await page.locator('#experiment-picker').waitFor({ state: 'visible' });
-  assert.equal(await page.locator('#change-setup').isVisible(), true, 'embedded picker offers Change setup');
-  assert.equal(await page.locator('#change-setup').getAttribute('href'), 'index.html?manual=1', 'Change setup opens manual setup');
-  assert.match(await page.locator('#setup-text').textContent(), /running on your/);
-  assert.equal(await page.locator('.setup-summary').evaluate((model) => Boolean(document.querySelector('.free-chat-panel').compareDocumentPosition(model) & Node.DOCUMENT_POSITION_FOLLOWING)), true, 'embedded model details follow activities and free chat');
-  assert.equal(await page.getByRole('button', { name: 'Keep chatting', exact: true }).count(), 0, 'picker has no obsolete return action');
-  if (id) await page.locator(`.experiment-card[href*="experiment=${id}"]`).click();
-  else await page.locator('#free-chat').click();
-  await page.waitForURL('**/chat.html?**');
-  await ready(page);
-  assert.equal(await page.locator('#experiment-picker').isVisible(), false, 'selection closes the picker');
-  assert.deepEqual(await page.evaluate(() => ({ loads: window.__loads, document: performance.timeOrigin })), before,
-    'switching experiments retains the document and loaded engine');
-  assert.equal(await page.locator('#load-panel').evaluate((dialog) => dialog.open), false, 'switching does not reopen the loader');
-  await page.evaluate(() => { window.__calls = []; });
-}
-
-/** Fails if any visible control or text sticks out of the viewport horizontally. */
-async function noOverflow(page) {
-  const overflow = await page.evaluate(() => {
-    const width = document.documentElement.clientWidth;
-    return [...document.querySelectorAll('button, textarea, select, header, aside, section, h1, h2, h3, p, dd')]
-      .filter((element) => element.getClientRects().length)
-      .filter((element) => element.getBoundingClientRect().right > width + 1 || element.getBoundingClientRect().left < -1)
-      .map((element) => element.id || element.tagName);
-  });
-  assert.deepEqual(overflow, [], 'controls and text fit viewport');
-}
-
 try {
   await mkdir('test-results', { recursive: true });
   const context = await browser.newContext({ viewport: { width: 1366, height: 900 }, acceptDownloads: true });
@@ -401,7 +318,7 @@ try {
   await page.locator('#experiment-picker').waitFor({ state: 'visible' });
   assert.match(await page.locator('#setup-text').textContent(), /running on your processor.*wllama/, 'picker summary reflects GPU-to-CPU fallback');
   await page.locator('.experiment-card').first().waitFor();
-  assert.equal(await page.locator('.experiment-card').count(), 13);
+  assert.equal(await page.locator('.experiment-card').count(), 14);
   assert.match(await page.locator('.pick-intro').textContent(), /Choose a new experiment/);
   assert.doesNotMatch(await page.locator('.pick-intro').textContent(), /Teachers:|Mode/);
   assert.equal(await page.locator('.pick-intro').evaluate((intro) => getComputedStyle(intro).maxWidth), 'none', 'intro text is not capped before the grid edge');
@@ -633,7 +550,7 @@ try {
   await cold.waitForURL('**/index.html?experiment=creativity');
   await cold.locator('#go-now').waitFor({ state: 'visible' });
   const recommendations = await cold.evaluate(async () => {
-    const { recommend, incompatibility, CATALOG } = await import('./models.js?v=1.2');
+    const { recommend, incompatibility, CATALOG } = await import('./models.js?v=1.3');
     const caps = { wasm: true, wasmSimd: true, secureContext: true, webgpu: { available: true, f16: true, maxBufferMB: 2048 }, deviceMemoryGB: 8, mobile: false, cores: 8, threads: true, storageFreeMB: 10000 };
     const mediumHeadroom = CATALOG.tiers.medium.webllm.f16.vramMB * 2 + 256;
     return {
@@ -703,6 +620,7 @@ try {
   await tourContext.addInitScript(() => {
     if (!localStorage.getItem('tinythinker.dev-reset-sentinel')) {
       localStorage.setItem('tinythinker.experiment-progress', JSON.stringify({ shakespeare: 5, story: 2 }));
+      localStorage.setItem('tinythinker.experiment-hints', JSON.stringify(['shakespeare@1']));
       localStorage.setItem('tinythinker.dev-reset-sentinel', 'keep');
     }
   });
@@ -732,6 +650,7 @@ try {
   await first.setViewportSize({ width: 1280, height: 800 });
   assert.equal(new URL(first.url()).searchParams.has('resetCookies'), false, 'cookie reset is consumed once');
   assert.equal(await first.evaluate(() => localStorage.getItem('tinythinker.experiment-progress')), null, 'development reset also clears badges');
+  assert.equal(await first.evaluate(() => localStorage.getItem('tinythinker.experiment-hints')), null, 'development reset also clears experiment tips');
   assert.equal(await first.evaluate(() => localStorage.getItem('tinythinker.dev-reset-sentinel')), 'keep', 'other saved data survives the reset');
   const resetCookies = await tourContext.cookies();
   assert.equal(resetCookies.some((cookie) => ['tinythinker_tour_v2', 'tinythinker_tour', 'tinythinker_welcome'].includes(cookie.name)), false, 'welcome and tour cookies are cleared');
@@ -867,6 +786,8 @@ try {
   await tip.waitFor({ state: 'visible' });
   assert.match(await tip.innerText(), /Tip 4 of 6[\s\S]*Pick a question/i);
   await first.screenshot({ path: 'test-results/tour-3-question.png' });
+  await first.getByRole('button', { name: 'Pirate voice' }).click();
+  assert.match(await tip.innerText(), /Tip 5 of 6[\s\S]*Send it/i, 'setting buttons complete the question step');
   await first.getByRole('button', { name: 'Rally the crew' }).click();
   assert.match(await tip.innerText(), /Tip 5 of 6[\s\S]*Send it/i);
   await first.locator('#send').click();
@@ -878,10 +799,38 @@ try {
   assert.equal(await first.locator('#journey-experiments').evaluate((link) => link.classList.contains('tour-target')), true);
   await first.screenshot({ path: 'test-results/tour-5-back.png' });
   await tip.getByRole('button', { name: 'Done' }).click();
-  assert.equal(await tip.isVisible(), false);
   assert.equal((await tourContext.cookies()).find((cookie) => cookie.name === 'tinythinker_tour_v2')?.value, '6');
+  await tip.waitFor({ state: 'visible' });
+  assert.match(await tip.innerText(), /Experiment tip[\s\S]*The voice lives here/i, 'after the first-run tips, the experiment tip points at its key setting');
+  assert.equal(await first.locator('#system-prompt').evaluate((field) => field.classList.contains('tour-target')), true, 'Shakespeare tip highlights the system prompt');
+  assert.equal(await tip.locator('.tour-skip').isVisible(), false, 'experiment tips have no Skip tips action');
+  await first.screenshot({ path: 'test-results/tour-6-experiment.png' });
+  await tip.getByRole('button', { name: 'Got it' }).click();
+  assert.equal(await tip.isVisible(), false);
+  assert.deepEqual(await first.evaluate(() => JSON.parse(localStorage.getItem('tinythinker.experiment-hints'))), ['shakespeare@1']);
+  const migrated = await first.evaluate(async () => {
+    localStorage.setItem('tinythinker.experiment-hints', JSON.stringify(['shakespeare']));
+    const { hintSeen } = await import('./tour.js?v=1.3');
+    return {
+      seen: hintSeen('shakespeare@1'),
+      keys: JSON.parse(localStorage.getItem('tinythinker.experiment-hints')),
+    };
+  });
+  assert.equal(migrated.seen, true);
+  assert.deepEqual(migrated.keys, ['shakespeare@1'], 'legacy hint keys migrate to a versioned key');
+  assert.equal((await tourContext.cookies()).find((cookie) => cookie.name === 'tinythinker_tour_v2')?.value, '6', 'experiment tips do not change tour progress');
   await first.locator('#clear').click();
   await first.locator('#leave-continue').click();
+  await first.locator('#journey-experiments').click();
+  await first.locator('.experiment-card[href*="experiment=creativity"]').click();
+  await tip.waitFor({ state: 'visible' });
+  assert.match(await tip.innerText(), /Experiment tip[\s\S]*Turn this dial/i, 'switching experiments shows the new experiment tip');
+  assert.equal(await first.locator('#temperature').evaluate((field) => field.classList.contains('tour-target')), true);
+  await tip.getByRole('button', { name: 'Got it' }).click();
+  await first.locator('#journey-experiments').click();
+  await first.locator('.experiment-card[href*="experiment=shakespeare"]').click();
+  await first.waitForURL('**experiment=shakespeare**');
+  assert.equal(await tip.isVisible(), false, 'an experiment tip is shown only once');
   await first.goto(`${base}/index.html`);
   await first.locator('#countdown-text').filter({ hasText: 'Continuing in' }).waitFor();
   assert.equal(await first.locator('.tour:not(.hidden)').count(), 0, 'tips do not come back on the next visit');
@@ -900,7 +849,22 @@ try {
   await skipper.goto(`${base}/index.html?manual=1`);
   await skipper.locator('#override').waitFor({ state: 'visible' });
   assert.equal(await skipper.locator('.tour:not(.hidden)').count(), 0, 'completed older tours do not restart after adding a tip');
-  assert.equal(await skipper.evaluate(async () => (await import('./tour.js?v=1.2')).tourProgress()), 6, 'older completed progress maps to the new final step');
+  assert.equal(await skipper.evaluate(async () => (await import('./tour.js?v=1.3')).tourProgress()), 6, 'older completed progress maps to the new final step');
+  await skipContext.clearCookies({ name: 'tinythinker_tour_v2' });
+  await skipContext.clearCookies({ name: 'tinythinker_tour' });
+  await skipContext.addCookies([{ name: 'tinythinker_tour_v2', value: '0', url: base }, { name: 'tinythinker_welcome', value: '1', url: base }]);
+  await skipper.evaluate(() => localStorage.setItem('browserai.config', JSON.stringify({ engine: 'wllama', tier: 'tiny', variant: '' })));
+  await skipper.evaluate(() => localStorage.removeItem('tinythinker.experiment-hints'));
+  await skipper.goto(`${base}/chat.html?engine=wllama&tier=tiny&experiment=shakespeare`);
+  await ready(skipper);
+  const skipTip = skipper.locator('.tour');
+  await skipTip.waitFor({ state: 'visible' });
+  assert.match(await skipTip.innerText(), /Tip 4 of 6[\s\S]*Pick a question/i);
+  await skipTip.locator('.tour-skip').click();
+  await skipTip.waitFor({ state: 'visible' });
+  assert.match(await skipTip.innerText(), /Experiment tip[\s\S]*The voice lives here/i, 'skipping the chat tour still offers the experiment hint');
+  await skipTip.getByRole('button', { name: 'Got it' }).click();
+  assert.deepEqual(await skipper.evaluate(() => JSON.parse(localStorage.getItem('tinythinker.experiment-hints'))), ['shakespeare@1']);
   await skipContext.close();
   console.log('PASS first-run tips across setup, picker and chat; interactive loader; cookie stops repeats');
   await cold.goto(`${base}/licenses.html`);

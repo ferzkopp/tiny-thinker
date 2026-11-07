@@ -1,15 +1,25 @@
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 
+/** Stamps cache-version and app-version text in a source string.
+ * @param {string} source Source text to update.
+ * @param {string} version Release version such as `1.3`.
+ * @returns {string} Updated source text.
+ */
 export function updateVersionReferences(source, version) {
   return source
     .replace(/([?&]v=)\d+\.\d+(?:\.\d+)?\b/g, `$1${version}`)
     .replace(/(<small class="app-version">v)\d+\.\d+(?:\.\d+)?(<\/small>)/g, `$1${version}$2`);
 }
 
+/** Applies or checks a release version across the app and test assets.
+ * @param {string[]} args Release version or `--check`.
+ * @param {string} directory Repository root.
+ * @returns {void}
+ */
 export function release(args = [], directory = root) {
   if (args.length > 1) throw new Error('Usage: node release.mjs [version | --check]');
   const manifestPath = join(directory, 'version.json');
@@ -23,8 +33,10 @@ export function release(args = [], directory = root) {
     ...readdirSync(directory).filter((name) => /\.(html|js|css)$/.test(name)).map((name) => join(directory, name)),
     ...readdirSync(join(directory, 'engines')).filter((name) => name.endsWith('.js')).map((name) => join(directory, 'engines', name)),
     join(directory, 'tests', 'browser-smoke.mjs'),
+    join(directory, 'tests', 'prompt-grid.mjs'),
+    join(directory, 'test-results', 'role-dialog.mjs'),
   ];
-  const changes = files.flatMap((file) => {
+  const changes = files.filter((file) => existsSync(file)).flatMap((file) => {
     const source = readFileSync(file, 'utf8');
     const updated = updateVersionReferences(source, version);
     return updated === source ? [] : [{ file, updated }];

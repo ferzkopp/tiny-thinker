@@ -1,13 +1,19 @@
 // Experiment picker: shows every classroom experiment as a card and opens the chat with the chosen one.
-import { ENGINES, describeModel, loadConfig, saveConfig, configToQuery } from './models.js?v=1.2';
-import { wireLicenseLinks } from './licenses.js?v=1.2';
-import { EXPERIMENTS, EXPERIMENT_BADGES, getExperiment, withExperiment, experimentBadgeLevel } from './experiments.js?v=1.2';
-import { startTour } from './tour.js?v=1.2';
-import { el } from './dom.js?v=1.2';
+import { ENGINES, describeModel, loadConfig, saveConfig, configToQuery } from './models.js?v=1.3';
+import { wireLicenseLinks } from './licenses.js?v=1.3';
+import { EXPERIMENTS, EXPERIMENT_BADGES, getExperiment, withExperiment, experimentBadgeLevel } from './experiments.js?v=1.3';
+import { startTour } from './tour.js?v=1.3';
+import { el } from './dom.js?v=1.3';
 
 const $ = (id) => document.getElementById(id);
 
-/** One card linking to the chat with this experiment; the current one (when coming back from the chat) is marked. */
+/** Creates one experiment card with badge and last-used metadata.
+ * @param {object} activity Experiment catalog entry.
+ * @param {number} number Number shown in the picker.
+ * @param {string} href Chat URL for this experiment.
+ * @param {boolean} current True if this was the last-used/current experiment.
+ * @returns {HTMLLIElement} Rendered list item.
+ */
 function card(activity, number, href, current) {
   const link = el('a', { className: 'experiment-card', href },
     el('span', { className: 'experiment-num', textContent: String(number), ariaHidden: 'true' }),
@@ -33,19 +39,27 @@ function card(activity, number, href, current) {
   return el('li', {}, link);
 }
 
+/** Rebuilds the experiment card list for a setup and current activity.
+ * @param {HTMLUListElement} list Card list element.
+ * @param {{engine: string, tier: string, variant: string}} config Active setup.
+ * @param {object|null} current Current experiment entry.
+ */
 export function renderExperimentCards(list, config, current) {
   const query = configToQuery(config);
   list.replaceChildren(...EXPERIMENTS.map((activity, index) =>
     card(activity, index + 1, `chat.html?${withExperiment(query, activity.id)}`, activity === current)));
 }
 
+/** Writes the current model summary into the bottom setup panel.
+ * @param {{engine: string, tier: string, variant: string}} config Active setup.
+ */
 export function renderSetupSummary(config) {
   const engine = ENGINES[config.engine];
   const model = describeModel(config);
   $('setup-text').textContent = `${model.label} running on your ${config.engine === 'webllm' ? 'graphics chip' : 'processor'} (${engine.label}, ${engine.backend}). ${model.detail}.`;
 }
 
-/** Lists the experiments for the saved setup, or sends the student to the device check if there is none. */
+/** Initializes the experiment picker or redirects to setup if no valid setup exists. */
 function main() {
   $('boot-warning').remove();
   wireLicenseLinks();

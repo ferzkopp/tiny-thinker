@@ -5,9 +5,8 @@ export const MODELS_BASE = new URL('./models/', import.meta.url);
 
 export const CATALOG = await (await fetch(CATALOG_URL, { cache: 'no-cache' })).json();
 
-/**
- * Loads models/manifest.json, written by download_models.py.
- * @returns {Promise<{webllm: object, gguf: object}>} Empty lists if absent, meaning "use Hugging Face".
+/** Loads the local model manifest and returns an empty manifest shape on failure.
+ * @returns {Promise<object>} Self-hosted model manifest.
  */
 async function loadManifest() {
   try {
@@ -31,9 +30,39 @@ export const ENGINES = {
   wllama: { label: 'wllama', backend: 'CPU (WASM)', contextSize: 2048 },
 };
 
+/** Returns the context size allowed for an engine and model tier.
+ * @param {{engine: string, tier: string, variant: string}} config Active setup.
+ * @returns {number} Context window in tokens.
+ */
 export function modelContextSize(config) {
   const engineLimit = ENGINES[config.engine].contextSize;
   return Math.min(engineLimit, CATALOG.tiers[config.tier].contextSize ?? engineLimit);
+}
+
+/** Builds the system/user/assistant message list sent to an engine.
+ * @param {{engine: string, tier: string, variant: string}} config Active setup.
+ * @param {{systemPrompt: string, maxTokens: number, temperature: number}} settings Effective settings.
+ * @param {Array<{role: string, content: string}>} history Conversation history.
+ * @returns {Array<{role: string, content: string}>} Trimmed messages, including a repeated system prompt for weak prompt-following models.
+ */
+export function buildModelMessages(config, settings, history) {
+  const systemPrompt = `${settings.systemPrompt}\nNever repeat the question.`;
+  const estimateTokens = (text) => Math.ceil(text.length / 3) + 4;
+  const budget = modelContextSize(config) - settings.maxTokens - 64;
+  let used = estimateTokens(systemPrompt);
+  const kept = [];
+  for (let messageIndex = history.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const cost = estimateTokens(history[messageIndex].content);
+    if (kept.length && used + cost > budget) break;
+    used += cost;
+    kept.unshift(history[messageIndex]);
+  }
+  while (kept.length && kept[0].role !== 'user') kept.shift();
+  if (tierInfo(config.tier).familyInfo.weakSystemPrompt && kept.length) {
+    const last = kept[kept.length - 1];
+    kept[kept.length - 1] = { ...last, content: `${systemPrompt}\n\n${last.content}` };
+  }
+  return [{ role: 'system', content: systemPrompt }, ...kept];
 }
 
 // Key name predates the Tiny Thinker name; changing it would discard setups saved in existing browsers.
@@ -163,9 +192,9 @@ export function recommend(caps) {
   return tier ? { engine: 'wllama', tier, variant: '' } : null;
 }
 
-/**
- * Accepts only known engines, tiers and variants (input may come from the URL or localStorage).
- * @returns {{engine: string, tier: string, variant: string}|null}
+/** Validates and normalizes raw setup data from URL or browser storage.
+ * @param {object|null} raw Candidate setup.
+ * @returns {{engine: string, tier: string, variant: string}|null} Valid setup or null.
  */
 export function validateConfig(raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -178,9 +207,9 @@ export function validateConfig(raw) {
   return { engine, tier, variant: '' };
 }
 
-/**
- * Serializes a setup as URL query parameters, e.g. "engine=wllama&tier=tiny".
- * @returns {string}
+/** Serializes a setup as URL query parameters.
+ * @param {{engine: string, tier: string, variant: string}} config Active setup.
+ * @returns {string} Query string without a leading `?`.
  */
 export function configToQuery(config) {
   const p = new URLSearchParams({ engine: config.engine, tier: config.tier });
@@ -188,8 +217,8 @@ export function configToQuery(config) {
   return p.toString();
 }
 
-/**
- * Remembers the chosen setup for the next visit.
+/** Saves the selected setup for the next visit.
+ * @param {{engine: string, tier: string, variant: string}} config Setup to store.
  */
 export function saveConfig(config) {
   try {
@@ -199,9 +228,8 @@ export function saveConfig(config) {
   }
 }
 
-/**
- * Reads the setup from the URL first, then from localStorage.
- * @returns {{engine: string, tier: string, variant: string}|null}
+/** Reads the setup from the URL first, then browser storage.
+ * @returns {{engine: string, tier: string, variant: string}|null} Valid setup or null.
  */
 export function loadConfig() {
   const params = new URLSearchParams(location.search);

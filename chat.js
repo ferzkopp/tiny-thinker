@@ -1,13 +1,13 @@
 // Chat page: loads the chosen engine, streams replies, runs classroom modes and shows help popups.
-import { ENGINES, CATALOG, modelContextSize, describeModel, resolveSource, loadConfig, saveConfig, configToQuery, tierInfo, parameterCount } from './models.js?v=1.2';
-import { detectCapabilities } from './capabilities.js?v=1.2';
-import { wireLicenseLinks } from './licenses.js?v=1.2';
-import { getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle, EXPERIMENT_BADGES, experimentBadgeLevel, recordExperimentInteraction } from './experiments.js?v=1.2';
-import { extractTurtleCode, runTurtle, renderTurtleSvg } from './turtle.js?v=1.2';
-import { renderLoadingLessons } from './loading.js?v=1.2';
-import { renderExperimentCards, renderSetupSummary } from './picker.js?v=1.2';
-import { startTour } from './tour.js?v=1.2';
-import { el } from './dom.js?v=1.2';
+import { ENGINES, CATALOG, modelContextSize, buildModelMessages, describeModel, resolveSource, loadConfig, saveConfig, configToQuery, tierInfo, parameterCount } from './models.js?v=1.3';
+import { detectCapabilities } from './capabilities.js?v=1.3';
+import { wireLicenseLinks } from './licenses.js?v=1.3';
+import { getExperiment, withExperiment, settingsMatch, describeChange, formatNotes, numberedTitle, EXPERIMENT_BADGES, experimentBadgeLevel, recordExperimentInteraction } from './experiments.js?v=1.3';
+import { extractTurtleCode, runTurtle, renderTurtleSvg } from './turtle.js?v=1.3';
+import { renderLoadingLessons } from './loading.js?v=1.3';
+import { renderExperimentCards, renderSetupSummary } from './picker.js?v=1.3';
+import { startTour, TOUR_LENGTH } from './tour.js?v=1.3';
+import { el } from './dom.js?v=1.3';
 
 // Key name predates the Tiny Thinker name; changing it would discard settings saved in existing browsers.
 const SETTINGS_KEY = 'browserai.settings';
@@ -80,9 +80,9 @@ const HELP = {
 
 const $ = (id) => document.getElementById(id);
 
-/**
- * Shows help text in an element, rendering **Name** as bold.
- * Built from text nodes, never innerHTML, so text can never inject markup.
+/** Adds a text fragment and a **bold** segment parser for help dialogs.
+ * @param {HTMLElement} element Element that receives the formatted content.
+ * @param {string} text Text containing simple double-asterisk emphasis.
  */
 function setEmphasized(element, text) {
   element.replaceChildren(...text.split(/\*\*(.+?)\*\*/).map((part, index) =>
@@ -134,7 +134,10 @@ let debugReport = null;
 // Step buttons that change settings, mapped to their change, so the active one can be highlighted.
 const actionChanges = new WeakMap();
 
-/** Builds the "About this model" popup from the loaded model's catalog entry. */
+/** Builds the about-model dialog content from the active setup and catalog entry.
+ * @returns {{title: string, text: string, facts: Array<[string,string]>, example: string}}
+ *   Dialog heading, summary, fact list and educational example.
+ */
 function modelHelp() {
   const tier = tierInfo(config.tier);
   const family = tier.familyInfo;
@@ -166,13 +169,19 @@ function modelHelp() {
   };
 }
 
-/** Converts to a number within [min, max]; returns fallback for non-numbers. */
+/** Converts a value to a finite number inside a range, or returns a fallback.
+ * @param {unknown} value Value to parse and clamp.
+ * @param {number} min Minimum allowed value.
+ * @param {number} max Maximum allowed value.
+ * @param {number} fallback Value used for non-finite input.
+ * @returns {number} Clamped numeric value.
+ */
 function clamp(value, min, max, fallback) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
 }
 
-/** Fills the settings fields with the saved free-chat settings, or the defaults. */
+/** Loads saved free-chat settings into the three settings controls. */
 function loadSettings() {
   let saved = {};
   try {
@@ -185,7 +194,9 @@ function loadSettings() {
   ui.temperature.value = clamp(saved.temperature, 0, 1.5, DEFAULT_SETTINGS.temperature);
 }
 
-/** Reads the settings fields, clamped to valid ranges. An empty system prompt means the default one. */
+/** Reads and clamps the active settings controls.
+ * @returns {{systemPrompt: string, maxTokens: number, temperature: number}} Effective settings.
+ */
 function currentSettings() {
   return {
     systemPrompt: ui.systemPrompt.value.trim() || DEFAULT_SETTINGS.systemPrompt,
@@ -194,7 +205,7 @@ function currentSettings() {
   };
 }
 
-/** Saves the current settings as the free-chat settings. */
+/** Saves effective free-chat settings to local storage; storage failures are ignored. */
 function persistSettings() {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(currentSettings()));
@@ -203,7 +214,7 @@ function persistSettings() {
   }
 }
 
-/** Enables or disables chat controls and step buttons for the current model and streaming state. */
+/** Enables or disables chat controls according to load, generation and model state. */
 function updateControls() {
   ui.input.disabled = !ready;
   ui.send.disabled = !ready || generating;
@@ -214,7 +225,9 @@ function updateControls() {
   for (const button of document.querySelectorAll('.step-action')) button.disabled = !ready;
 }
 
-/** Writes settings into the fields and reacts as if the student had typed them. */
+/** Writes an effective settings object into the three settings controls.
+ * @param {{systemPrompt: string, maxTokens: number, temperature: number}} settings Settings to apply.
+ */
 function setSettings(settings) {
   ui.systemPrompt.value = settings.systemPrompt;
   ui.maxTokens.value = settings.maxTokens;
@@ -222,13 +235,13 @@ function setSettings(settings) {
   onSettingsChanged();
 }
 
-/** Reacts to a settings change. Only free-chat settings persist, so a reload without a mode never inherits a preset. */
+/** Updates mode-status text and persistence after a settings control changes. */
 function onSettingsChanged() {
   if (!activeActivity) persistSettings();
   updateModeStatus();
 }
 
-/** Shows whether the mode's preset is unchanged and highlights the active setting buttons. */
+/** Shows whether settings differ from the active experiment preset and highlights setting actions. */
 function updateModeStatus() {
   if (!activeActivity) return;
   const settings = currentSettings();
@@ -241,21 +254,24 @@ function updateModeStatus() {
   }
 }
 
-/** Puts the setup and mode in the address bar and the navigation links, so reloading and moving between pages keep them. */
+/** Updates the browser URL and the experiment navigation link for the active setup/activity.
+ */
 function syncModeUrl() {
   const query = withExperiment(location.search, activeActivity?.id);
   window.history.replaceState(null, '', `chat.html${query ? `?${query}` : ''}`);
   $('journey-experiments').href = `experiments.html?${withExperiment(configToQuery(config), activeActivity?.id)}`;
 }
 
-/** True if a reset would lose something: messages, run records, a draft, a reply in progress or (optionally) notes. */
+/** Checks whether leaving could discard conversation, settings, reply or note work.
+ * @param {boolean} includeNotes Whether reflection notes count as work.
+ * @returns {boolean} True if a leave confirmation is required.
+ */
 function hasWork(includeNotes) {
   return Boolean(history.length || turns.length || ui.input.value.trim() || generating || (includeNotes && $('reflection').value.trim()));
 }
 
-/**
- * Empties the conversation and the message box, stopping any reply in progress.
- * @param {{keepTurns?: boolean}} [options] keepTurns keeps run records for the notes download (Fresh run).
+/** Resets model context and optionally keeps exported turn records.
+ * @param {{keepTurns?: boolean}} options If true, retain run records for export.
  */
 function resetConversation({ keepTurns = false } = {}) {
   runVersion += 1;
@@ -271,16 +287,15 @@ function resetConversation({ keepTurns = false } = {}) {
   updateControls();
 }
 
-/** Full reset for a new mode or the next student: conversation, run records, last question and notes. */
+/** Fully clears the current session and last-prompt state for a fresh experiment. */
 function startOver() {
   resetConversation();
   lastPrompt = '';
   $('reflection').value = '';
 }
 
-/**
- * Clears the model's context but keeps run records for the notes; refills the message box.
- * @param {string} [prompt] Text to put in the message box; defaults to the draft or the last question.
+/** Clears model context but preserves run records and refills the composer.
+ * @param {string} [prompt] Optional prompt to refill instead of the draft/last prompt.
  */
 function freshRun(prompt) {
   const draft = ui.input.value.trim();
@@ -289,15 +304,15 @@ function freshRun(prompt) {
   ui.input.focus();
 }
 
-/**
- * Runs a step button: a question button fills the message box (optionally after a fresh run);
- * a setting button changes the settings and starts a fresh run so answers can be compared.
+/** Runs a blue question or green setting step action.
+ * @param {{prompt?: string, settings?: object, fresh?: boolean, label: string}} action Step-button action.
  */
 function runAction(action) {
   if (action.settings) {
     freshRun();
     setSettings({ ...currentSettings(), ...action.settings });
     addMessage('system-note', `Changed ${describeChange(action.settings)}. Fresh start: press Send to compare.`);
+    chatTour?.complete(4);
   } else if (action.fresh) {
     freshRun(action.prompt);
     chatTour?.complete(4);
@@ -308,7 +323,10 @@ function runAction(action) {
   }
 }
 
-/** Creates the button for one step action, styled blue (question) or green (setting change). */
+/** Creates a prompt or setting button for one guide step.
+ * @param {{prompt?: string, settings?: object, fresh?: boolean, label: string}} action Step action.
+ * @returns {HTMLButtonElement} Configured step button.
+ */
 function actionButton(action) {
   const button = el('button', { type: 'button', textContent: action.label });
   if (action.settings) {
@@ -323,6 +341,7 @@ function actionButton(action) {
   return button;
 }
 
+/** Updates the earned experiment badge shown in the chat header. */
 function updateExperimentBadge() {
   const badge = $('guide-badge');
   const level = experimentBadgeLevel(activeActivity?.id);
@@ -340,7 +359,7 @@ function updateExperimentBadge() {
   }), earned.label);
 }
 
-/** Shows the instructions panel for the current mode, or hides it in Free chat. */
+/** Renders the instructions, starter actions and notice for the active experiment. */
 function renderGuide() {
   const mode = activeActivity;
   $('guide').classList.toggle('hidden', !mode);
@@ -361,7 +380,7 @@ function renderGuide() {
   updateControls();
 }
 
-/** Saves the student's notes, settings and run records as a text file on this device. */
+/** Downloads the current experiment settings, turns and reflection notes as text. */
 function downloadNotes() {
   if (generating) return;
   const text = formatNotes({ activity: activeActivity, model: ui.badge.textContent,
@@ -374,7 +393,7 @@ function downloadNotes() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Applies the experiment from the URL and wires its controls. */
+/** Wires experiment switching, reset confirmations, leave links and the in-page picker. */
 function wireModes() {
   activeActivity = getExperiment(new URLSearchParams(location.search).get('experiment'));
   if (activeActivity) setSettings(activeActivity.settings);
@@ -466,6 +485,7 @@ function wireModes() {
     else loadSettings();
     syncModeUrl();
     showPicker(false);
+    chatTour?.refreshOnce();
   });
   ui.clear.addEventListener('click', () => {
     const clear = () => {
@@ -517,7 +537,9 @@ function wireModes() {
   });
 }
 
-/** Scrolls the conversation to the newest message, at most once per frame, unless the student scrolled up. */
+/** Schedules a scroll to the newest chat bubble unless the student scrolled up.
+ * @param {boolean} force True to force following even if the student had scrolled up.
+ */
 function scrollToNewest(force = false) {
   if (force) followNewest = true;
   if (!followNewest || scrollQueued) return;
@@ -528,12 +550,11 @@ function scrollToNewest(force = false) {
   });
 }
 
-/**
- * Adds a message bubble. All model and user text goes through text nodes, never innerHTML.
- * @param {'user'|'assistant'|'system-note'} role Bubble style.
- * @param {string} [text] Initial text.
- * @returns {{append(delta: string): void, setThinking(on: boolean): void, setMeta(text: string): void}}
- *   Handle for streaming text into the bubble and showing the thinking dots and the info line.
+/** Adds a text-only chat bubble and returns methods for streaming and metadata.
+ * @param {'user'|'assistant'|'system-note'} role Message role used for visual styling.
+ * @param {string} text Initial text content.
+ * @returns {{append: (delta: string) => void, setThinking: (on: boolean) => void, setWarmup: (on: boolean) => void, setText: (text: string) => void, setMeta: (text: string) => void, mountTurtle: function}}
+ *   Bubble update and Turtle-sandbox handle.
  */
 function addMessage(role, text = '') {
   const body = document.createTextNode(text);
@@ -575,11 +596,10 @@ function addMessage(role, text = '') {
   };
 }
 
-/**
- * Mounts an interactive Logo turtle stage and editable code runner inside an assistant message bubble.
- * @param {HTMLElement} container The `.turtle-sandbox` element inside the bubble.
- * @param {string} initialCode Extracted turtle commands from the model reply.
- * @param {(code: string) => void} [onCodeEdit] Updates the turn record when the student edits and runs code.
+/** Renders an editable Logo sandbox inside an assistant reply.
+ * @param {HTMLElement} container Bubble element that receives the sandbox.
+ * @param {string} initialCode Initial generated Logo program.
+ * @param {(code: string) => void} onCodeEdit Records an edited code run by the student.
  */
 async function renderTurtleWidget(container, initialCode, onCodeEdit) {
   const stage = el('div', { className: 'turtle-stage' });
@@ -608,6 +628,10 @@ async function renderTurtleWidget(container, initialCode, onCodeEdit) {
   });
 
   let execution = 0;
+  /** Executes Logo code and updates the sandbox status, stage and edit callback.
+   * @param {string} codeText Logo source to execute.
+   * @param {boolean} fromUser Whether this execution came from the student editor.
+   */
   const execute = async (codeText, fromUser = false) => {
     const version = ++execution;
     runBtn.disabled = true;
@@ -654,11 +678,10 @@ async function renderTurtleWidget(container, initialCode, onCodeEdit) {
   await execute(initialCode, false);
 }
 
-/**
- * Shows the error panel above the chat.
- * @param {string} title Short heading.
- * @param {string} message Explanation and what to do next.
- * @param {{fallback?: boolean, retry?: boolean}} [options] Show the CPU-engine and/or Try again buttons.
+/** Shows a model or chat error panel with optional recovery actions.
+ * @param {string} title Short error heading.
+ * @param {string} message Student-facing explanation and next step.
+ * @param {{fallback?: boolean, retry?: boolean, diagnostics?: boolean}} options Recovery controls to display.
  */
 function showError(title, message, { fallback = false, retry = false, diagnostics = false } = {}) {
   ui.errorTitle.textContent = title;
@@ -669,7 +692,7 @@ function showError(title, message, { fallback = false, retry = false, diagnostic
   ui.errorPanel.classList.remove('hidden');
 }
 
-/** Hides the error panel. */
+/** Hides and clears the chat error/debug state. */
 function hideError() {
   ui.errorPanel.classList.add('hidden');
   $('debug-info').open = false;
@@ -678,6 +701,9 @@ function hideError() {
   debugReport = null;
 }
 
+/** Collects non-conversation browser/device diagnostics for the load-error panel.
+ * @returns {Promise<string>} JSON-formatted debug report.
+ */
 async function collectDebugInfo() {
   const failure = loadFailure;
   const capabilities = await detectCapabilities().catch((error) => ({ probeError: String(error?.message || error) }));
@@ -704,14 +730,14 @@ async function collectDebugInfo() {
   }, null, 2);
 }
 
+/** Returns a cached debug-report promise, collecting it only once. */
 function getDebugReport() {
   debugReport ??= collectDebugInfo();
   return debugReport;
 }
 
-/**
- * Updates the model status in the header; 'unavailable' also greys out the chat.
- * @param {'loading'|'ready'|'unavailable'} state
+/** Updates the model status label and chat unavailable state.
+ * @param {'loading'|'ready'|'unavailable'} state Model lifecycle state.
  */
 function setModelStatus(state) {
   const labels = { loading: 'Loading…', ready: 'Ready', unavailable: 'Not available' };
@@ -720,7 +746,9 @@ function setModelStatus(state) {
   $('workspace').classList.toggle('no-model', state === 'unavailable');
 }
 
-/** Opens or closes the loading overlay, which blocks the page while the model loads. */
+/** Opens or closes the modal model-loading dialog.
+ * @param {boolean} on True to show, false to close.
+ */
 function showLoader(on) {
   if (on && !ui.loadPanel.open) {
     ui.loadPanel.showModal();
@@ -729,10 +757,7 @@ function showLoader(on) {
   if (!on && ui.loadPanel.open) ui.loadPanel.close();
 }
 
-/**
- * Closes the loader once the model is ready. A student who was reading in it gets a
- * "Start chatting" button instead, so the content does not vanish mid-sentence.
- */
+/** Waits for the student's loader acknowledgment after a ready model if they interacted. */
 async function finishLoader() {
   if (!loaderTouched || !ui.loadPanel.open) {
     showLoader(false);
@@ -746,7 +771,24 @@ async function finishLoader() {
   showLoader(false);
 }
 
-/** Shows this page's first-run tips (pick a question, send, go back to the experiments) once. */
+/** Builds the one-time setting hint for the active experiment.
+ * @returns {object|null} Tour-tip object, or null for free chat/no hint.
+ */
+function experimentTip() {
+  const hint = activeActivity?.hint;
+  if (!hint) return null;
+  const settings = $('settings');
+  return {
+    step: TOUR_LENGTH + 1,
+    once: `${activeActivity.id}@${Number.isInteger(hint.version) ? hint.version : 1}`,
+    side: 'above',
+    title: hint.title,
+    text: hint.text,
+    target: () => (settings.open ? $(hint.field) : settings.querySelector('summary')),
+  };
+}
+
+/** Starts the three chat tips, then queues the once-only active-experiment hint. */
 function startChatTour() {
   if (chatTour) return;
   chatTour = startTour([
@@ -771,12 +813,16 @@ function startChatTour() {
       title: 'Try another experiment',
       text: 'Finished? Come back here to choose another experiment. "Set up" lets you try a bigger or smaller model.',
     },
-  ]);
+  ], {
+    onFinish: (tour) => {
+      const tip = experimentTip();
+      if (tip) tour.add(tip);
+    },
+  });
 }
 
-/**
- * Shows engine, model, size tier and file source in the header.
- * @param {string} [extra] Engine detail from load(), e.g. "8 threads".
+/** Updates the model/setup badge in the chat header.
+ * @param {string} [extra] Adapter detail such as thread count.
  */
 function setBadge(extra) {
   engineDetail = extra || '';
@@ -785,37 +831,15 @@ function setBadge(extra) {
   ui.badge.textContent = `${e.label} · ${e.backend}${extra ? ` (${extra})` : ''} · ${m.label}${config.variant ? ` ${config.variant}` : ''} (${config.tier}) · ${m.where}`;
 }
 
-/** Rough token count (no tokenizer on the main thread); overestimates so trimming errs on the safe side. */
-function estimateTokens(text) {
-  return Math.ceil(text.length / 3) + 4;
-}
-
-/**
- * Builds the messages for the model: system prompt plus as much recent conversation as fits the context window.
- * @param {{systemPrompt: string, maxTokens: number}} settings
- * @returns {{role: string, content: string}[]}
+/** Builds model messages for the active setup and current conversation.
+ * @param {{systemPrompt: string, maxTokens: number, temperature: number}} settings Effective settings.
+ * @returns {Array<{role: 'system'|'user'|'assistant', content: string}>} Trimmed message list.
  */
 function buildMessages(settings) {
-  const systemPrompt = `${settings.systemPrompt}\nNever repeat the question.`;
-  const budget = modelContextSize(config) - settings.maxTokens - 64;
-  let used = estimateTokens(systemPrompt);
-  const kept = [];
-  for (let i = history.length - 1; i >= 0; i--) {
-    const cost = estimateTokens(history[i].content);
-    if (kept.length && used + cost > budget) break;
-    used += cost;
-    kept.unshift(history[i]);
-  }
-  while (kept.length && kept[0].role !== 'user') kept.shift();
-  // Small models largely ignore the system role, so the instructions are repeated with the newest question.
-  if (tierInfo(config.tier).familyInfo.weakSystemPrompt && kept.length) {
-    const last = kept[kept.length - 1];
-    kept[kept.length - 1] = { ...last, content: `${systemPrompt}\n\n${last.content}` };
-  }
-  return [{ role: 'system', content: systemPrompt }, ...kept];
+  return buildModelMessages(config, settings, history);
 }
 
-/** Loads the engine and model for `config` behind the loading overlay; on failure, shows the no-model state. */
+/** Loads the configured engine/model, updates UI status and starts chat tips after success. */
 async function startEngine() {
   ready = false;
   firstReplyPending = true;
@@ -836,10 +860,10 @@ async function startEngine() {
 
   try {
     if (config.engine === 'webllm') {
-      const { WebLLMEngine } = await import('./engines/webllm-engine.js?v=1.2');
+      const { WebLLMEngine } = await import('./engines/webllm-engine.js?v=1.3');
       engine = new WebLLMEngine();
     } else {
-      const { WllamaEngine } = await import('./engines/wllama-engine.js?v=1.2');
+      const { WllamaEngine } = await import('./engines/wllama-engine.js?v=1.3');
       engine = new WllamaEngine();
     }
     const info = await engine.load(resolveSource(config), ({ progress, text }) => {
@@ -885,7 +909,7 @@ async function startEngine() {
   }
 }
 
-/** Replaces a failing GPU engine with the CPU engine for the same model size. */
+/** Unloads the GPU engine, clears the conversation and retries with the CPU engine. */
 async function switchToCpu() {
   if (generating) return;
   ready = false;
@@ -907,7 +931,27 @@ async function switchToCpu() {
   await startEngine();
 }
 
-/** Sends the message box to the model and streams the reply. Ignores replies from a conversation that was reset. */
+/** Streams one model reply into a chat bubble.
+ * @param {string} text User prompt.
+ * @param {{systemPrompt: string, maxTokens: number, temperature: number}} settings Effective model settings.
+ * @param {object} reply Bubble handle returned by addMessage.
+ * @returns {Promise<{result: object, firstTokenAt: number, chunks: number, version: number}>}
+ *   Model result, timing information and conversation version used for stale-reply protection.
+ */
+async function streamModelReply(text, settings, reply) {
+  const version = runVersion;
+  let firstTokenAt = 0;
+  let chunks = 0;
+  const result = await engine.chat(buildMessages(settings), settings, (delta) => {
+    if (version !== runVersion) return;
+    if (!firstTokenAt) firstTokenAt = performance.now();
+    chunks += 1;
+    reply.append(delta);
+  });
+  return { result, firstTokenAt, chunks, version };
+}
+
+/** Sends the composer text, records the turn and streams the model reply. */
 async function send() {
   const text = ui.input.value.trim();
   if (!text || !ready || generating) return;
@@ -936,12 +980,10 @@ async function send() {
   let chunks = 0;
 
   try {
-    const result = await engine.chat(buildMessages(settings), settings, (delta) => {
-      if (version !== runVersion) return;
-      if (!firstTokenAt) firstTokenAt = performance.now();
-      chunks += 1;
-      reply.append(delta);
-    });
+    const streamed = await streamModelReply(text, settings, reply);
+    const result = streamed.result;
+    firstTokenAt = streamed.firstTokenAt;
+    chunks = streamed.chunks;
     if (version !== runVersion) return;
     if (result.finishReason !== 'abort') firstReplyPending = false;
     turn.reply = result.text || '';
@@ -1029,7 +1071,9 @@ async function send() {
   }
 }
 
-/** Shows a help popup; the model popup is built from the loaded model. */
+/** Opens a keyboard-accessible explanation dialog for a setting or control.
+ * @param {string} key Help catalog key or `model` for loaded-model details.
+ */
 function openHelp(key) {
   const help = key === 'model' ? modelHelp() : HELP[key];
   const dialog = $('setting-help-dialog');
@@ -1048,7 +1092,7 @@ function openHelp(key) {
   dialog.showModal();
 }
 
-/** Wires the help popups, the message box, the chat buttons and the settings fields. */
+/** Wires help dialogs, the composer, chat buttons and settings controls. */
 function wireEvents() {
   const helpDialog = $('setting-help-dialog');
   for (const button of document.querySelectorAll('[data-help]')) {
@@ -1103,7 +1147,7 @@ function wireEvents() {
   }, { passive: true });
 }
 
-/** Entry point: without a saved setup, go to the device check first; otherwise load the model. */
+/** Initializes setup state, wires UI events and starts model loading. */
 async function main() {
   $('boot-warning').remove();
   wireLicenseLinks();

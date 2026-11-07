@@ -1,4 +1,4 @@
-import { LogoInterpreter } from './vendor/jslogo/logo.js?v=1.2';
+import { LogoInterpreter } from './vendor/jslogo/logo.js?v=1.3';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const STAGE_SIZE = 240;
@@ -40,6 +40,10 @@ export function extractTurtleCode(text) {
   return (block ? block[2] : source).trim();
 }
 
+/** Validates source length and structural nesting before Logo interpretation.
+ * @param {string} code Logo source.
+ * @returns {string} Trimmed, bounded source.
+ */
 function checkedSource(code) {
   const source = String(code || '').trim();
   if (!source) throw new Error('No Logo commands found. Try REPEAT 4 [ FD 60 RT 90 ].');
@@ -53,6 +57,11 @@ function checkedSource(code) {
   return source;
 }
 
+/** Creates a sandboxed jslogo interpreter with resource limits and an optional dispatch callback.
+ * @param {object} adapter Adapter exposing the allowed turtle operations.
+ * @param {((operation: object) => void)|null} onDispatch Optional operation callback.
+ * @returns {object} Configured Logo interpreter.
+ */
 function createInterpreter(adapter = {}, onDispatch = null) {
   const interpreter = new LogoInterpreter(adapter, {});
   for (const name of interpreter.routines.keys()) {
@@ -185,7 +194,11 @@ export async function runTurtle(code) {
   return result;
 }
 
-/** Creates an SVG element with attributes. */
+/** Creates an SVG element with attributes.
+ * @param {string} tag SVG tag name.
+ * @param {Record<string, string|number>} attrs Element attributes.
+ * @returns {SVGElement} Configured SVG element.
+ */
 function svgEl(tag, attrs = {}) {
   const node = document.createElementNS(SVG_NS, tag);
   for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));

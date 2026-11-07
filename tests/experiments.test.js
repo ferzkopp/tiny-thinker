@@ -56,6 +56,72 @@ test('TinyLlama setups resolve for both engines without changing existing contex
   assert.equal(models.incompatibility('wllama', 'balanced', caps), '');
 });
 
+test('evaluation and chat share message construction without mutating conversation history', async () => {
+  const { buildModelMessages } = await import('../models.js');
+  const settings = { systemPrompt: 'Give one hint.', maxTokens: 144 };
+  const history = [{ role: 'user', content: 'How do I start?' }];
+  const small = buildModelMessages({ engine: 'wllama', tier: 'small' }, settings, history);
+  assert.equal(small[0].role, 'system');
+  assert.match(small[0].content, /Never repeat the question/);
+  assert.equal(small[1].content, `${small[0].content}\n\nHow do I start?`);
+  assert.equal(history[0].content, 'How do I start?');
+  const native = buildModelMessages({ engine: 'webllm', tier: 'balanced' }, settings, history);
+  assert.equal(native[1].content, 'How do I start?');
+  const longHistory = [{ role: 'user', content: 'old '.repeat(4000) },
+    { role: 'assistant', content: 'old answer' }, ...history];
+  const trimmed = buildModelMessages({ engine: 'wllama', tier: 'balanced' }, settings, longHistory);
+  assert.equal(trimmed.length, 2);
+  assert.equal(trimmed[1].content, 'How do I start?');
+});
+
+test('dinner-party guests use the tested card and Rosa is the preset guest', () => {
+  const activity = getExperiment('dinner-party');
+  const guests = activity.steps[0].actions.filter((action) => action.settings);
+  assert.deepEqual(guests.map((guest) => guest.label), ['Seat Rosa (1930)', 'Seat Daniel (1960)', 'Seat Mei (1990)']);
+  assert.equal(guests[0].settings.systemPrompt, activity.settings.systemPrompt);
+  for (const [guest, name, year] of guests.map((item, index) => [item, ['Rosa', 'Daniel', 'Mei'][index], ['1930', '1960', '1990'][index]])) {
+    const prompt = guest.settings.systemPrompt;
+    assert.match(prompt, new RegExp(`^You are ${name}, .* in ${year}\\.`));
+    assert.match(prompt, /You care about .*You worry that/);
+    assert.match(prompt, /You only know your own time/);
+    assert.match(prompt, new RegExp(`Stay true to what you care about.*${name}\\.$`));
+    assert.doesNotMatch(prompt, /User:|Assistant:/);
+  }
+  assert.ok(activity.steps[1].actions.every((action) => action.prompt && /says/.test(action.prompt)), 'relay buttons model a student retelling');
+  assert.equal(activity.settings.maxTokens, 96);
+});
+
+test('revised experiment prompts keep comparison and restoration controls consistent', () => {
+  const action = (id, label) => getExperiment(id).steps.flatMap((step) => step.actions || []).find((item) => item.label === label);
+  assert.equal(action('silly-rule', 'Original rule').settings.systemPrompt, getExperiment('silly-rule').settings.systemPrompt);
+  const strict = action('silly-rule', 'Stricter rule').settings.systemPrompt;
+  assert.notEqual(strict, getExperiment('silly-rule').settings.systemPrompt);
+  assert.match(strict, /curvy yellow fruit/, 'the stricter rule gives the model an allowed answer');
+  assert.match(strict, /riddles, spelling games, joined letters and pretend play/);
+  assert.equal(action('coach', 'Coach mode').settings.systemPrompt, getExperiment('coach').settings.systemPrompt);
+  assert.doesNotMatch(getExperiment('coach').settings.systemPrompt, /3\/4 equals 6\/8/);
+  assert.equal(action('bug-hunt', 'Step-by-step rule').settings.systemPrompt, getExperiment('bug-hunt').settings.systemPrompt);
+  assert.match(getExperiment('story').settings.systemPrompt, /For feedback, start with "Tip:"/);
+  assert.doesNotMatch(getExperiment('story').settings.systemPrompt, /Always reply with a numbered list/);
+});
+
+test('experiment hint storage migrates legacy unversioned keys', () => {
+  const migrateHintKeys = (value) => {
+    let parsed;
+    try { parsed = JSON.parse(value || '[]'); } catch { return []; }
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((key) => typeof key === 'string' && !key.includes('@') ? `${key}@1` : key);
+  };
+  assert.deepEqual(migrateHintKeys('["shakespeare","creativity@2"]'), ['shakespeare@1', 'creativity@2']);
+  assert.deepEqual(migrateHintKeys('not json'), []);
+});
+
+test('evaluation tools do not pin stale app module cache versions', () => {
+  for (const file of ['tests/prompt-grid.mjs', 'test-results/role-dialog.mjs']) {
+    assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), /\?v=1\.2/);
+  }
+});
+
 test('release labels and the entire local module graph use the same cache version', () => {
   const { version } = JSON.parse(readFileSync(new URL('../version.json', import.meta.url), 'utf8'));
   const visited = new Set();
@@ -124,6 +190,14 @@ test('release command detects stale references without writing and stamps from o
   }
 });
 
+/** Creates a minimal in-memory local-storage implementation for badge tests.
+ * @param {string|null} value Initial stored value.
+ * @returns {{getItem: (key: string) => string|null, setItem: (key: string, next: string) => void}} Storage-like object.
+ */
+/** Creates a minimal local-storage implementation for badge tests.
+ * @param {string|null} value Initial JSON or raw value.
+ * @returns {{getItem: (key: string) => string|null, setItem: (key: string, next: string) => void}} Storage-like object.
+ */
 function progressStorage(value = null) {
   return {
     getItem() { return value; },
@@ -200,9 +274,9 @@ test('badge progress handles corrupt data and unavailable storage without breaki
   assert.equal(recordExperimentInteraction('shakespeare', unavailable), 0);
 });
 
-test('all thirteen modes have valid presets and clickable step actions', () => {
-  assert.equal(EXPERIMENTS.length, 13);
-  assert.equal(new Set(EXPERIMENTS.map((item) => item.id)).size, 13);
+test('all fourteen modes have valid presets and clickable step actions', () => {
+  assert.equal(EXPERIMENTS.length, 14);
+  assert.equal(new Set(EXPERIMENTS.map((item) => item.id)).size, 14);
   for (const activity of EXPERIMENTS) {
     assert.match(activity.id, /^[a-z-]+$/);
     for (const key of ['title', 'minutes', 'concept', 'objective', 'notice', 'entry', 'stretch']) {
@@ -225,6 +299,15 @@ test('all thirteen modes have valid presets and clickable step actions', () => {
       }
     }
     assert.ok(activity.settings.systemPrompt.length < 1000);
+    if (activity.hint) {
+      assert.ok(Number.isInteger(activity.hint.version) && activity.hint.version >= 1, `${activity.id} hint has a positive integer version`);
+      assert.ok(['system-prompt', 'temperature', 'max-tokens'].includes(activity.hint.field), `${activity.id} hint points at a settings field`);
+      assert.ok(activity.hint.title.length <= 32 && activity.hint.text.length <= 240, `${activity.id} hint is short`);
+    }
+    const settingActions = actions.filter((action) => action.settings);
+    if (settingActions.length && ['shakespeare', 'silly-rule', 'creativity', 'story', 'facts', 'languages', 'bug-hunt', 'coach', 'turtle', 'dinner-party'].includes(activity.id)) {
+      assert.ok(activity.hint, `${activity.id} has a hint for setting changes`);
+    }
     assert.ok(activity.settings.maxTokens >= 16 && activity.settings.maxTokens <= 256);
     assert.equal(activity.settings.maxTokens % 16, 0);
     assert.ok(activity.settings.temperature >= 0 && activity.settings.temperature <= 1.5);
@@ -252,11 +335,12 @@ test('Shakespeare voice uses sustained Early Modern English and restores the sam
   const restore = activity.steps.flatMap((step) => step.actions || [])
     .find((action) => action.label === 'Back to Shakespeare');
   assert.match(prompt, /Elizabethan \(Early Modern\) English/);
-  assert.match(prompt, /Always begin every reply with "Hark!" to get the reader's attention\./);
-  assert.match(prompt, /Keep this voice throughout/);
-  assert.match(prompt, /"thou art"[\s\S]*"doth"[\s\S]*"hath"/);
-  assert.match(prompt, /answer the actual question clearly and accurately/);
-  assert.match(prompt, /Example - User:[\s\S]*Assistant: Hark![\s\S]*doth[\s\S]*thy/);
+  assert.match(prompt, /Always begin every reply with "Hark!"/);
+  assert.match(prompt, /Keep this voice in every sentence/);
+  assert.match(prompt, /"doth", "hath", "art"/);
+  assert.match(prompt, /Answer the request/);
+  assert.match(prompt, /Sample of the voice: Hark![\s\S]*doth[\s\S]*thy/);
+  assert.doesNotMatch(prompt, /User:|Assistant:/, 'dialogue examples make small models continue a fake conversation');
   assert.equal(restore.settings.systemPrompt, prompt);
 });
 
@@ -264,11 +348,12 @@ test('pirate voice supplies explicit style rules and an example without changing
   const action = getExperiment('shakespeare').steps.flatMap((step) => step.actions || [])
     .find((item) => item.label === 'Pirate voice');
   assert.deepEqual(Object.keys(action.settings), ['systemPrompt']);
-  assert.match(action.settings.systemPrompt, /Always start every reply with "Arrr, matey!"/);
+  assert.match(action.settings.systemPrompt, /Always begin every reply with "Arrr, matey!"/);
   assert.match(action.settings.systemPrompt, /"ye" instead of "you"/);
   assert.match(action.settings.systemPrompt, /"yer" instead of "your"/);
-  assert.match(action.settings.systemPrompt, /Answer the actual question clearly and accurately/);
-  assert.match(action.settings.systemPrompt, /Example - User:[\s\S]*Assistant: Arrr, matey!/);
+  assert.match(action.settings.systemPrompt, /Answer the request/);
+  assert.match(action.settings.systemPrompt, /Sample of the voice: Arrr, matey!/);
+  assert.doesNotMatch(action.settings.systemPrompt, /User:|Assistant:/);
 });
 
 test('activity routes accept only catalog IDs and preserve engine parameters', () => {

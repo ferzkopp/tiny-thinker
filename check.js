@@ -1,14 +1,14 @@
 // Device check page (step 1): probes the browser, recommends an engine and model, then forwards to the
 // experiment picker, or straight to the chat when the link names an experiment or came from the chat.
-import { detectCapabilities } from './capabilities.js?v=1.2';
+import { detectCapabilities } from './capabilities.js?v=1.3';
 import {
   ENGINES, TIERS, tierInfo, parameterCount, countLocalModels,
   recommend, incompatibility, webllmVariant, describeModel, configToQuery, saveConfig, loadConfig,
-} from './models.js?v=1.2';
-import { wireLicenseLinks } from './licenses.js?v=1.2';
-import { EXPERIMENTS, getExperiment, withExperiment, numberedTitle } from './experiments.js?v=1.2';
-import { showWelcome, startTour, tourProgress } from './tour.js?v=1.2';
-import { el } from './dom.js?v=1.2';
+} from './models.js?v=1.3';
+import { wireLicenseLinks } from './licenses.js?v=1.3';
+import { EXPERIMENTS, getExperiment, withExperiment, numberedTitle } from './experiments.js?v=1.3';
+import { showWelcome, startTour, tourProgress } from './tour.js?v=1.3';
+import { el } from './dom.js?v=1.3';
 
 const COUNTDOWN_SECONDS = 5;
 const $ = (id) => document.getElementById(id);
@@ -19,12 +19,11 @@ const toChat = Boolean(experiment) || params.get('next') === 'chat';
 const nextLabel = experiment ? `Next: start ${numberedTitle(experiment)}` : toChat ? 'Back to the chat' : 'Next: choose an experiment';
 let tour = null;
 
-/**
- * Adds one row to the checklist.
- * @param {'ok'|'warn'|'fail'} status Controls the icon and colour.
- * @param {string} label What was checked.
- * @param {string} [detail] Result shown under the label.
- * @param {string} [why] Plain-language explanation of why the check matters.
+/** Adds one capability check to the setup results and reason sidebar.
+ * @param {'ok'|'warn'|'error'} status Visual and semantic status.
+ * @param {string} label Short capability name.
+ * @param {string} detail Result detail.
+ * @param {string} why Plain-language explanation.
  */
 function addCheck(status, label, detail, why) {
   const icons = { ok: '✓', warn: '!', fail: '✗' };
@@ -38,7 +37,9 @@ function addCheck(status, label, detail, why) {
   $('checks').append(li);
 }
 
-/** Shows the result of every capability probe as a checklist. */
+/** Renders all capability results for the setup page.
+ * @param {object} caps Detected browser/device capabilities.
+ */
 function renderChecks(caps) {
   addCheck(caps.secureContext ? 'ok' : 'warn', 'Trusted connection',
     caps.secureContext ? (caps.protocol === 'https:' ? 'HTTPS connection' : 'Local address: trusted by the browser, even over HTTP')
@@ -81,14 +82,20 @@ function renderChecks(caps) {
     'Model files come from this site or Hugging Face, an online library of AI models. Your questions are not sent there.');
 }
 
-/** One-line summary of a setup, e.g. "wllama on CPU (WASM) with SmolLM2 135M (...)". */
+/** Builds a short setup summary for the recommendation panel.
+ * @param {{engine: string, tier: string, variant: string}} config Selected setup.
+ * @returns {string} Student-facing setup description.
+ */
 function describeConfig(config) {
   const engine = ENGINES[config.engine];
   const model = describeModel(config);
   return `${engine.label} on ${engine.backend} with ${model.label} (${model.detail})`;
 }
 
-/** Plain-language version of the recommendation: what the engine and model are. */
+/** Builds a plain-language explanation for a recommended setup.
+ * @param {{engine: string, tier: string, variant: string}} config Recommended setup.
+ * @returns {string} Explanation text.
+ */
 function explainConfig(config) {
   const gpu = config.engine === 'webllm';
   return `${ENGINES[config.engine].label} is the engine, the program that runs the AI. It will use your ${gpu ? 'graphics chip' : 'processor'}. `
@@ -96,12 +103,19 @@ function explainConfig(config) {
     + 'This is a cautious starting choice, not a guarantee: browsers do not report all available memory or cache limits. Change lets you try another model.';
 }
 
-/** Builds a setup; WebLLM needs the precision variant this GPU supports, the CPU engine none. */
+/** Builds a setup object and validates whether it fits the device.
+ * @param {string} engine Engine ID.
+ * @param {string} tier Model tier.
+ * @param {object} caps Detected capabilities.
+ * @returns {{config: object|null, incompatibility: string}} Setup and validation result.
+ */
 function setupFor(engine, tier, caps) {
   return { engine, tier, variant: engine === 'webllm' ? webllmVariant(caps) : '' };
 }
 
-/** Saves the setup and moves on: to the experiment picker, or back to the chat (keeping any experiment). */
+/** Saves a setup and continues to the experiment or chat route.
+ * @param {{engine: string, tier: string, variant: string}} config Setup to save.
+ */
 function go(config) {
   tour?.complete(2);
   saveConfig(config);
@@ -110,10 +124,9 @@ function go(config) {
     : `experiments.html?${configToQuery(config)}`;
 }
 
-/**
- * Shows the manual engine/model picker. Options this device cannot run are disabled with the reason.
- * @param {object} caps Result of detectCapabilities().
- * @param {{engine: string, tier: string}} initial Pre-selected setup.
+/** Replaces the recommendation panel with manual engine/model controls.
+ * @param {object} caps Detected capabilities.
+ * @param {{engine: string, tier: string, variant: string}} initial Currently selected setup.
  */
 function renderOverride(caps, initial) {
   const form = $('override');
@@ -123,7 +136,7 @@ function renderOverride(caps, initial) {
   let selectedEngine = initial.engine;
   let selectedTier = initial.tier;
 
-  /** Re-lists the model tiers for the selected engine, moving the selection to a compatible tier. */
+  /** Refreshes model choices after the engine or capabilities change. */
   function renderModels() {
     modelBox.replaceChildren();
     if (incompatibility(selectedEngine, selectedTier, caps)) {
@@ -163,13 +176,10 @@ function renderOverride(caps, initial) {
   form.classList.remove('hidden');
 }
 
-/**
- * Shows Next and Change for the recommended setup. On later visits it also counts down and moves on by itself;
- * any key press, click or focus change pauses it, so nobody is moved on before they have read the page.
- * On the first visit there is no countdown: the first-run tip explains the page instead.
- * @param {object} config Recommended setup.
- * @param {Function} onCancel Called when the user wants to choose manually.
- * @param {boolean} auto Whether to count down.
+/** Starts the setup countdown or leaves it paused for manual selection.
+ * @param {{engine: string, tier: string, variant: string}} config Auto-continue setup.
+ * @param {() => void} onCancel Runs if the student opens manual setup.
+ * @param {boolean} auto True to count down, false to require a button press.
  */
 function startCountdown(config, onCancel, auto) {
   let remaining = COUNTDOWN_SECONDS;
@@ -211,7 +221,7 @@ function startCountdown(config, onCancel, auto) {
   });
 }
 
-/** Runs the checks, then either offers the recommendation or shows the picker (?manual=1). */
+/** Runs capability checks, welcome/tour setup and the setup-page entry flow. */
 async function main() {
   $('boot-warning').remove();
   wireLicenseLinks();

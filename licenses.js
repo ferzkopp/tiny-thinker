@@ -1,19 +1,23 @@
 // License and attribution listing, shown on licenses.html and as a popup on the other pages.
-import { CATALOG, MANIFEST, MODELS_BASE, TIERS, tierInfo } from './models.js?v=1.2';
-import { el } from './dom.js?v=1.2';
+import { CATALOG, MANIFEST, MODELS_BASE, TIERS, tierInfo } from './models.js?v=1.3';
+import { el } from './dom.js?v=1.3';
 
 const HF = 'https://huggingface.co/';
 
-/** Creates a link whose text is set as plain text (never parsed as HTML). */
+/** Creates a plain-text link element.
+ * @param {string} text Visible label.
+ * @param {string} href Link target.
+ * @returns {HTMLAnchorElement} Safe text link.
+ */
 function link(text, href) {
   return el('a', { href, textContent: text, rel: 'noopener' });
 }
 
-/**
- * One list entry for a model build: its source repository and, when self-hosted, links to the local license files.
- * @param {string} name Build description, e.g. "GGUF Q4_K_M".
- * @param {string} sourceRepo Hugging Face repository the files came from.
- * @param {object} [local] Manifest entry if the build is self-hosted.
+/** Builds one model-license list entry.
+ * @param {string} name Model/build label.
+ * @param {string} sourceRepo Upstream repository URL.
+ * @param {object|null} local Self-hosted license metadata, or null.
+ * @returns {HTMLLIElement} Rendered license item.
  */
 function buildItem(name, sourceRepo, local) {
   const li = el('li', {}, `${name} – source `, link(sourceRepo, HF + sourceRepo));
@@ -70,7 +74,9 @@ export function renderLicenses(container) {
   );
 }
 
-/** Returns the licenses popup, building it on first use. */
+/** Gets or creates the license dialog.
+ * @returns {HTMLDialogElement} Dialog element.
+ */
 function getDialog() {
   let dialog = document.getElementById('licenses-dialog');
   if (dialog) return dialog;

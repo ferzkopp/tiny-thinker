@@ -5,10 +5,8 @@ const SIMD_PROBE = new Uint8Array([
   0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11,
 ]);
 
-/**
- * Asks the browser for a high-performance WebGPU adapter and a device.
- * @returns {Promise<{available: boolean, f16: boolean, fallbackAdapter: boolean, vendor: string,
- *   architecture: string, maxBufferMB: number, error: string}>} `available` is false for software adapters.
+/** Probes WebGPU adapter availability and shader-f16 support.
+ * @returns {Promise<{available: boolean, f16: boolean, maxBufferMB: number, error: string|null}>}
  */
 async function probeWebGPU() {
   const result = { available: false, f16: false, fallbackAdapter: false, vendor: '', architecture: '', maxBufferMB: 0, error: '' };
@@ -39,9 +37,8 @@ async function probeWebGPU() {
   return result;
 }
 
-/**
- * Checks WebAssembly support and whether SIMD instructions validate (required by both engines).
- * @returns {{wasm: boolean, simd: boolean}}
+/** Checks WebAssembly and WebAssembly SIMD support.
+ * @returns {{wasm: boolean, wasmSimd: boolean}}
  */
 function probeWasm() {
   const wasm = typeof WebAssembly === 'object' && typeof WebAssembly.instantiate === 'function';
@@ -54,9 +51,8 @@ function probeWasm() {
   return { wasm, simd };
 }
 
-/**
- * Best-effort phone/tablet detection, used to pick smaller models.
- * @returns {boolean}
+/** Uses coarse browser signals to identify a likely mobile device.
+ * @returns {boolean} True for mobile-oriented user agents.
  */
 function isMobile() {
   if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
@@ -67,9 +63,8 @@ function isMobile() {
     (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
 }
 
-/**
- * Estimates how much storage this site may still use for cached models.
- * @returns {Promise<number|null>} Free megabytes, or null if the browser does not say.
+/** Reads browser storage estimates and converts free bytes to megabytes.
+ * @returns {Promise<number|null>} Free megabytes, or null when unavailable.
  */
 async function probeFreeStorageMB() {
   try {
@@ -81,9 +76,8 @@ async function probeFreeStorageMB() {
   }
 }
 
-/**
- * Runs all probes and returns the capability record used by models.js to recommend a setup.
- * @returns {Promise<object>} See the returned keys; `deviceMemoryGB` is null outside Chromium.
+/** Collects all device, browser, GPU, memory and storage capability signals.
+ * @returns {Promise<object>} Capability object consumed by model recommendation and incompatibility checks.
  */
 export async function detectCapabilities() {
   const [webgpu, storageFreeMB] = await Promise.all([probeWebGPU(), probeFreeStorageMB()]);

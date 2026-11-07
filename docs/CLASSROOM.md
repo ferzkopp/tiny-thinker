@@ -4,15 +4,15 @@
 
 Tiny Thinker runs small, already-trained language models on the student's device. Students change instructions and generation settings; they do not train a new model. The useful outcome is an observation supported by a comparison, or a student-made artifact shaped and critiqued with the tool, not a quick answer copied from the model.
 
-Use the cycle **predict -> try -> change one thing -> compare -> explain**, and for creative tasks **plan -> generate -> critique -> rewrite -> share**. Model failures are valid evidence: a model might ignore the Shakespeare voice, invent a fact, miscount a step or break its silly rule. Do not promise an activity will always produce a particular response.
+Use the cycle **predict -> try -> change one thing -> compare -> explain**, and for creative tasks **plan -> generate -> critique -> rewrite -> share**. Model failures are valid evidence: a model might ignore the Shakespeare voice, invent a fact, miscount a step or break its silly rule. Do not promise an activity will always produce a particular response. Measured success rates per activity and model are in the [prompt evaluation](prompt-evaluation.md).
 
 Treat AI like any convenience tool: useful when directed with clear goals and context, but easy to lean on passively. Keep students in the producer's seat by having them work out a small case by hand first, define success criteria before prompting, critique what comes back, and make the final piece their own.
 
 ## Before Class
 
-1. Prepare the site with `python download_models.py --profile classroom`, then `python download_models.py --profile classroom --check`. See [README.md](README.md) for deployment details.
+1. Prepare the site with `python download_models.py --profile classroom`, then `python download_models.py --profile classroom --check`. See [README.md](../README.md) for deployment details.
 2. Test the actual school browser, network and representative devices. Use HTTPS on a remote server; localhost works for preview. Confirm jsDelivr is accessible. Other model tiers may also need Hugging Face access.
-3. All four model tiers are prepared on the site. On weaker devices, choose tiny or small on the setup screen; medium and quality give better answers (and Spanish) but need more memory and a longer first download per device.
+3. All five model tiers are prepared on the site. On weaker devices, choose tiny or small on the setup screen; medium and quality give better answers (and Spanish) but need more memory and a longer first download per device. The Time-travel dinner party needs quality.
 4. Open and warm up the chosen model on each device before students arrive. Disk copies on the server do not mean every browser already has a cached copy. Coordinate downloads to avoid overloading school Wi-Fi.
 5. Test sending, stopping, applying a preset, settings help and reset. Optional COOP/COEP headers enable multithreaded CPU inference; see the device check for availability.
 6. Follow the school's safeguarding, age-appropriateness and AI-use policies. These open models are not certified child-safe or reliably moderated. Plan teacher-led or paired use for younger students and a non-AI alternative if needed.
@@ -38,7 +38,7 @@ Each activity includes its own student-facing steps, starter questions, entry ta
 | # | Activity | Starting Settings | Investigation |
 |---|---|---|---|
 | 1 | Shakespeare remix | Temperature 0.7; 160 tokens | Compare a theatrical voice with a neutral voice while keeping the question fixed. Style is not evidence of truth. |
-| 2 | Break the silly rule | 0.3; 96 tokens | Try harmless word games against a rule forbidding the word banana. A prompt is not a security boundary. |
+| 2 | Break the silly rule | 0.3; 96 tokens | Try harmless word games against a rule forbidding the word banana. A prompt is not a security boundary. Expect both rules to break sometimes on every model, especially in spelling games. In testing, the stricter rule leaked about as often as the original; it only guards against the tricks it names. |
 | 3 | Creativity dial | 0.2; 160 tokens | Compare repeated story openings at 0.2 and 1.0. Randomness is not a quality or accuracy score. |
 | 4 | Prompt makeover | 0.5; 160 tokens | Improve a vague brief by adding one audience, constraint or example at a time. Evaluate against a checklist. |
 | 5 | Story co-author | 0.9; 192 tokens | Choose, reject and rewrite story suggestions. Identify which creative decisions remain the student's. |
@@ -46,10 +46,11 @@ Each activity includes its own student-facing steps, starter questions, entry ta
 | 7 | Fact detective | 0.2; 128 tokens | Verify claims outside the model. The fictional Mira Moonpetal/Luminara question tests whether it invents evidence. |
 | 8 | Who gets to be the expert? | 0.7; 160 tokens | Compare fictional expert descriptions across otherwise identical she/he/they prompts. Repeat before drawing tentative conclusions. |
 | 9 | Language explorer | 0.3; 128 tokens | Ask the same question in English and Spanish, then repeat with a larger model (medium). Discuss why language coverage depends on training data and who that leaves out. Pair with a Spanish speaker to judge answers. |
-| 10 | Bug hunter | 0.2; 160 tokens | Solve a small grid, pattern or sorting puzzle by hand first, then trace the model's steps to catch where it slips. Fluent steps still need testing. |
-| 11 | Socratic coach | 0.2; 144 tokens | Ask for a hint instead of a shortcut, then test the coach with a wrong guess (`5/8`) and a right guess (`3/4 = 6/8`). Discuss AI sycophancy when a model praises a wrong answer. |
+| 10 | Bug hunter | 0.2; 160 tokens | Solve a small grid, pattern or sorting puzzle by hand first, then trace the model's steps to catch where it slips. Fluent steps still need testing. Expect mistakes: in testing only the quality model reliably solved the grid robot, and no model reliably continued the bead pattern. That gives students bugs to find; use the quality model to show a mostly correct trace. |
+| 11 | Socratic coach | 0.2; 144 tokens | Ask for a hint instead of a shortcut, then test the coach with a wrong guess (`5/8`) and a right guess (`3/4 = 6/8`). Discuss AI sycophancy when a model praises a wrong answer. Smaller models sometimes accept the wrong guess even in Coach mode. |
 | 12 | Make it your own | 0.6; 176 tokens | Compare a vague draft with a well-framed one, critique filler against a checklist, then rewrite in the student's own voice and share. |
 | 13 | Turtle artist | 0.2; 192 tokens | Predict turn angles on paper, ask for Logo turtle code (`FD`, `RT`, `REPEAT`), inspect the inline SVG drawing, and edit the code box with **Run code**. A single automatic retry repairs syntax mishaps; smaller models often need the student to fix the geometry. |
+| 14 | Time-travel dinner party | 0.6; 96 tokens | Students host three invented guests from 1930, 1960 and 1990: ask each the same question, then relay what one guest said to another in their own words. The history is the topic; the AI is the tool. Then switch to CS: find role mistakes (wrong-time objects, forgotten identity, AI-style replies, agreeing with everyone) and fix them in the system prompt. Use the quality model; on medium, guests often mention email or phones, which suits a short "find the mistake" warm-up but not the history discussion. |
 
 These are text and bounded Logo turtle activities. The sandbox uses a restricted Berkeley/UCBLogo-style dialect with standard pen commands, coordinates, arithmetic, variables, repeats and procedures. It never executes model-supplied JavaScript, accesses files or the network, generates raster images, trains models or browses the web.
 
@@ -80,7 +81,7 @@ For fairness activities, describe patterns in outputs, not the abilities of real
 
 ## Using Presets and Notes
 
-Students reach the activities in three steps shown at the top of every page: **Set up** (device check), **Choose an experiment** (a card per numbered activity) and **Chat and learn**. On a student's first visit, six short tips with arrows walk them through that path once. A cookie remembers that the tips were seen. While the model loads, students can read short explanations of loading time, megabytes, caching and working memory. In the chat, the yellow **Choose a new experiment** action returns to the experiment list. Opening an experiment applies its settings, starts a new conversation and shows the steps. Blue-outlined step buttons fill the message box (students still press Send); green-outlined buttons change a setting and start a fresh run for a fair comparison. An experiment link, such as `index.html?experiment=shakespeare`, skips the experiment list and can be shared without including student work in the URL.
+Students reach the activities in three steps shown at the top of every page: **Set up** (device check), **Choose an experiment** (a card per numbered activity) and **Chat and learn**. On a student's first visit, six short tips with arrows walk them through that path once. A cookie remembers that the tips were seen. After those tips, the first time a student opens an experiment whose main variable is a setting, one **Experiment tip** points at that setting. For example, the system prompt in Shakespeare remix and the temperature in Creativity dial. Experiments about the question itself (4, 6, 8 and 12) have no experiment tip. Each experiment tip appears once per browser. While the model loads, students can read short explanations of loading time, megabytes, caching and working memory. In the chat, the yellow **Choose a new experiment** action returns to the experiment list. Opening an experiment applies its settings, starts a new conversation and shows the steps. Blue-outlined step buttons fill the message box (students still press Send); green-outlined buttons change a setting and start a fresh run for a fair comparison. An experiment link, such as `index.html?experiment=shakespeare`, skips the experiment list and can be shared without including student work in the URL.
 
 Fresh run empties the model's conversation context and repeats the last question in the composer without sending it. Settings, reflection notes and earlier run records remain available for the experiment export. This allows a cleaner comparison than asking the same question later in a long conversation. The model, engine and precision also affect results, so record them and avoid changing them during a single-variable comparison.
 
@@ -110,7 +111,7 @@ Keep the challenge to the fictional word rule built into the activity. Students 
 
 Inference happens on-device; the app does not intentionally send conversation text to a model service. Static/CDN hosts still receive asset requests and may log IP addresses. Model libraries come from jsDelivr and unprepared model tiers fall back to Hugging Face. The site is not fully offline and browser caching is not a guarantee of offline startup.
 
-Settings and model/device choices persist in browser storage, and a single cookie records only how many first-run tips were seen; conversations and reflection notes live in tab memory. Supervise student use: the model may generate inaccurate, biased or inappropriate content even with a classroom-oriented prompt. Stop the response, clear it and discuss with the teacher if something uncomfortable appears.
+Settings and model/device choices persist in browser storage, as do the IDs of experiment tips already seen. A single cookie records only how many first-run tips were seen. Conversations and reflection notes live in tab memory. Supervise student use: the model may generate inaccurate, biased or inappropriate content even with a classroom-oriented prompt. Stop the response, clear it and discuss with the teacher if something uncomfortable appears.
 
 At the end, download required notes and press Done (step 4). Confirm to stop any reply, clear current work, restore prompt/settings and return to Set up. Cancel keeps the chat intact. Cached model files and earned badges are not deleted. From chat, the other workflow exit is Choose a new experiment, which keeps the loaded model available.
 
@@ -122,6 +123,42 @@ At the end, download required notes and press Done (step 4). Confirm to stop any
 - Answer cut off: raise the reply budget or ask for fewer sentences. Tokens are pieces of text, not an exact word count.
 - Downloads fail: inspect access to the site, jsDelivr and Hugging Face; verify free browser storage and server MIME types. Do not assume a cached model removes CDN requirements.
 - Site moved or served under a subdirectory: upload assets, engines and models together with their relative paths intact; check the setup badge says self-hosted for the prepared model.
+
+## Background: Time-Travel Dinner Party
+
+Activity 14 is inspired by Jill Scott's media installation [Frontiers of Utopia (1995)](https://www.jillscott.org/artworks/archived/frontiers-of-utopia-1995/). It presents the views of eight fictional women from four time zones (1900, 1930, 1960 and 1990) on work, education, gender and technology. Visitors move between the time layers and attend a virtual dinner party where the characters can be compared.
+
+The classroom version uses that structure with AI guests. Each guest is a system prompt:
+
+- a short life description;
+- what the guest cares about and worries about;
+- a rule to stay in their own time and ask about unfamiliar things;
+- a two-sentence reply limit.
+
+Here the subject is the main learning goal, and the AI is a tool. The guests will get their roles wrong, mention modern things or simply agree with everyone. Finding and fixing those mistakes moves the lesson from history to how AI works, including what a system prompt can and cannot control.
+
+**Why students relay the conversation.** The guests cannot hear each other: each answers the host's question on their own, and the student passes on what one guest said, in their own words. With the models available here, letting the app pass one guest's reply straight to the next did not work. The second guest copied the first or politely agreed. Student relays keep the guests distinct and turn passing messages into a summarizing exercise. Students can also discuss what changes when AI agents mainly talk to each other; the [Gibberlink](https://en.wikipedia.org/wiki/Gibberlink) demonstration, where two voice agents switch to a machine-only sound protocol, is a recent example.
+
+**Model requirement.** Use the quality model (Qwen2.5 1.5B). On medium, guests often mention email or phones in 1930. That is fine for a short "find the mistake" warm-up, but not for a history discussion. Smaller models lose the role. Measured results are in the [prompt evaluation](prompt-evaluation.md#dinner-party-activity-14).
+
+**Role mistakes to look for:**
+
+- an object from the wrong time (a 1960 guest mentioning email);
+- a guest who forgets who they are or speaks as another guest ("my customers" from the nature-club student);
+- an AI-style reply ("I don't have personal experiences");
+- a guest who drops their own view to agree with whoever was quoted.
+
+Asking "What is a home computer?" as a 1930 guest is correct behavior, not a mistake.
+
+**Other role sets.** These worked similarly on Qwen 1.5B. Students can paste them into the system prompt in place of a guest:
+
+| Topic | Guests | Host questions |
+|---|---|---|
+| Geography | A city child (subway, crowded, little green space), a farm child (school bus, animals, weather), an island child (ferry, storms, tourists) | How do you get to school? What one change would make your home better for kids? |
+| Generations | A 10-year-old (football, drawing, no phone yet), a 40-year-old nurse and parent (busy shifts), a 70-year-old retired teacher (garden, grandchildren, library) | What is the best and hardest thing about your age? How has technology changed how people talk? |
+| Town meeting | A skater (wants a skate park), a bakery owner (worries about parking and litter), a nature-club student (wants a pond for bees and birds) | What should the town build on the empty lot? How could we make a plan that works for everyone? |
+
+To write a guest, copy one of the activity's system prompts and change the name, time or place, life, cares and worries. Keep the guests invented rather than real people, and avoid making any guest represent a whole group. Discuss what the model got wrong, then check the history or geography in a trusted source.
 
 ## Research and Further Reading
 

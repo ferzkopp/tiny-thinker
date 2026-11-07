@@ -9,15 +9,15 @@ Learn AI by playing with it. Small, open models run right in the browser, with n
 
 Created by Andreas Schiffler. Source: https://github.com/ferzkopp/tiny-thinker (MIT License).
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Built with AI assistance: GPT 6.1 Sol, Claude 5.5, Gemini 4 Argon](https://img.shields.io/badge/built%20with%20AI-GPT%206.1%20Sol%20%7C%20Claude%205.5%20%7C%20Gemini%204%20Argon-8a2be2)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Built with AI assistance: GPT 6.1 Sol, Claude 5.5, Gemini 4 Argon, MAI-Code-2-Flash](https://img.shields.io/badge/built%20with%20AI-GPT%206.1%20Sol%20%7C%20Claude%205.5%20%7C%20Gemini%204%20Argon%20%7C%20MAI-Code-2-Flash-8a2be2)
 
 A static HTML/JavaScript playground with no build step or application backend. A static web server is still required. Engine libraries and model assets are downloaded over the network; this is not a fully offline distribution.
 
 ## In action
 
-![Horizontal three-panel overview of Tiny Thinker v1.2: 1. Set up (device checks, explanations and model recommendation), 2. Choose an experiment (all 13 classroom activities and free chat), and 3. Chat and learn (Turtle artist conversation with a gold five-point star, editable Logo code, instructions and settings).](docs/images/turtle-artist.png)
+![Horizontal three-panel overview of Tiny Thinker v1.3: 1. Set up (device checks, explanations and model recommendation), 2. Choose an experiment (all 14 classroom activities and free chat), and 3. Chat and learn (Turtle artist conversation with a gold five-point star, editable Logo code, instructions and settings).](docs/images/turtle-artist.png)
 
-**Three-step workflow (`Set up` -> `Choose an experiment` -> `Chat and learn`):** check the device and pick a model, choose one of the thirteen classroom experiments, then explore in the chat — shown here with **13. Turtle artist** running Qwen2.5 1.5B in the browser through the CPU engine.
+**Three-step workflow (`Set up` -> `Choose an experiment` -> `Chat and learn`):** check the device and pick a model, choose one of the fourteen classroom experiments, then explore in the chat — shown here with **13. Turtle artist** running Qwen2.5 1.5B in the browser through the CPU engine.
 
 ## After cloning
 
@@ -39,7 +39,7 @@ To prepare without downloading every model, you can also serve a fresh clone imm
 
 ## Classroom experiments
 
-The experiment picker includes thirteen original, short activities, numbered so a teacher can say "open experiment 4":
+The experiment picker includes fourteen original, short activities, numbered so a teacher can say "open experiment 4":
 
 1. **Shakespeare remix:** compare answers in different voices.
 2. **Break the silly rule:** test a rule with harmless word games.
@@ -54,8 +54,9 @@ The experiment picker includes thirteen original, short activities, numbered so 
 11. **Socratic coach:** ask for hints and test the feedback.
 12. **Make it your own:** give a generic AI draft your personal touch.
 13. **Turtle artist:** generate, draw and edit Logo shapes.
+14. **Time-travel dinner party:** host AI guests from 1930, 1960 and 1990, pass messages between them and fix role mistakes. Needs the quality model.
 
-See [CLASSROOM.md](CLASSROOM.md) for a sample lesson, mixed-age adaptations, safeguards and research references.
+See the [Classroom Guide](docs/CLASSROOM.md) for a sample lesson, mixed-age adaptations, safeguards, activity background and research references.
 
 ## Using the playground
 
@@ -69,11 +70,11 @@ Tiny Thinker guides you through three steps, shown as a step bar at the top of e
 
 While the model loads, a compact window shows progress, short explanations of loading time and megabytes, and experiment and model summaries. The notes explain caching and the difference between stored files and working memory. Successful loads stay visible for at least four seconds, including cached models; errors appear immediately. Moving the pointer inside the window, clicking or tapping, scrolling, or pressing a key other than Escape keeps it open until **Start chatting** is pressed. Automatic keyboard focus alone does not count as an interaction.
 
-On a first visit to setup, a yellow welcome dialog introduces Tiny Thinker and explains why checking and questioning AI matters. **Let's go** dismisses it; a cookie remembers that dismissal for a year. Then six short tips point at the three-step path and explain the yellow instruction panels, followed by the next things to click: continue from setup, pick an experiment, choose a question, press Send, and go back to try another experiment. **Skip tips** ends them early. A separate cookie remembers how far you got, so the tips do not return on later visits, and the setup page only counts down to the next step on later visits. **Your datacenter** shows what this device can run; yellow sidebars explain the checks and recommended engine and model.
+On a first visit to setup, a yellow welcome dialog introduces Tiny Thinker and explains why checking and questioning AI matters. **Let's go** dismisses it; a cookie remembers that dismissal for a year. Then six short tips point at the three-step path and explain the yellow instruction panels, followed by the next things to click: continue from setup, pick an experiment, choose a question, press Send, and go back to try another experiment. **Skip tips** ends them early. A separate cookie remembers how far you got, so the tips do not return on later visits, and the setup page only counts down to the next step on later visits. After those tips, the first visit to an experiment whose main variable is a setting shows one **Experiment tip** that highlights that setting, such as the system prompt in Shakespeare remix. Each experiment tip appears once; the browser's local storage remembers which ones were seen. **Your datacenter** shows what this device can run; yellow sidebars explain the checks and recommended engine and model.
 
 Inside the chat, the yellow **Choose a new experiment** action opens the picker without leaving the loaded chat page. If work could be lost, an inline, non-modal confirmation offers **Keep chatting** or **Leave experiment**. The chat stays usable; confirming stops any active reply and clears the conversation, draft and notes. Opening another experiment starts a fresh conversation with its preset, keeping the model loaded in memory. Switching to free chat also reuses the loaded model. Changing the model setup or reloading the page still initializes the engine again. Reloading or closing the tab can still trigger the browser's own warning about unsaved work.
 
-Each experiment earns an **Explorer** badge after one completed chat reply, **Experimenter** after two, and **Investigator** after five. The current level appears immediately in the chat header and on experiment cards. Completed replies accumulate across fresh runs and return visits in this browser's local storage. Visits alone, failed or stopped replies, empty replies, and automatic repair attempts do not earn extra progress. No conversation text is stored with badge progress; clearing site data removes the badges. See the [Classroom Guide](CLASSROOM.md#experiment-badges) for the full level logic and shared-device considerations.
+Each experiment earns an **Explorer** badge after one completed chat reply, **Experimenter** after two, and **Investigator** after five. The current level appears immediately in the chat header and on experiment cards. Completed replies accumulate across fresh runs and return visits in this browser's local storage. Visits alone, failed or stopped replies, empty replies, and automatic repair attempts do not earn extra progress. No conversation text is stored with badge progress; clearing site data removes the badges. See the [Classroom Guide](docs/CLASSROOM.md#experiment-badges) for the full level logic and shared-device considerations.
 
 Share an activity using a link such as [Shakespeare remix](https://www.ferzkopp.net/tiny-thinker/index.html?experiment=shakespeare) or [Turtle artist](https://www.ferzkopp.net/tiny-thinker/index.html?experiment=turtle). The device check skips the experiment list and carries the activity through to chat; links contain no conversation text.
 
@@ -279,7 +280,7 @@ The repository includes ready-made config files for IIS and Apache that set all 
 `version.json` is the single source of truth for the app release. From the repository folder, use Node.js to set a release and synchronize its static references:
 
 ```powershell
-node release.mjs 1.2
+node release.mjs 1.3
 node release.mjs --check
 ```
 
@@ -330,22 +331,22 @@ The pages carry a description, author, license and Open Graph tags for link prev
 
 ## Acknowledgements
 
-This project was developed with AI assistance: OpenAI GPT 6.1 Sol, Anthropic Claude 5.5 and Google Gemini 4 Argon were used for research, design, code, tests and documentation, reviewed and directed by the author. The models running in the app (SmolLM2, TinyLlama, Qwen2.5) and the engines (WebLLM, wllama) are separate open-source projects; see [licenses.html](licenses.html).
+This project was developed with AI assistance: OpenAI GPT 6.1 Sol, Anthropic Claude 5.5, Google Gemini 4 Argon and MAI-Code-2-Flash were used for research, design, code, tests and documentation, reviewed and directed by the author. The models running in the app (SmolLM2, TinyLlama, Qwen2.5) and the engines (WebLLM, wllama) are separate open-source projects; see [licenses.html](licenses.html).
 
 ## Privacy and classroom limits
 
-The app does not intentionally send prompts or replies to an inference service. Conversations and reflection notes are not saved to localStorage; settings and device/model choices are. Two first-party cookies last for a year: `tinythinker_welcome` records that the welcome dialog was dismissed, and `tinythinker_tour_v2` stores only a number (how many first-run tips were seen). Neither is used for tracking. An older `tinythinker_tour` cookie, if present, is read to preserve earlier tour progress. Static hosts and third-party asset hosts can see normal requests, including IP addresses. Dependencies downloaded from CDNs execute in the browser, so choose and review those dependencies accordingly.
+The app does not intentionally send prompts or replies to an inference service. Conversations and reflection notes are not saved to localStorage; settings, device/model choices, badge counts and the IDs of experiment tips already seen are. Two first-party cookies last for a year: `tinythinker_welcome` records that the welcome dialog was dismissed, and `tinythinker_tour_v2` stores only a number (how many first-run tips were seen). Neither is used for tracking. An older `tinythinker_tour` cookie, if present, is read to preserve earlier tour progress. Static hosts and third-party asset hosts can see normal requests, including IP addresses. Dependencies downloaded from CDNs execute in the browser, so choose and review those dependencies accordingly.
 
 Self-hosting the weights does not self-host the engine libraries, remove all external requests, or guarantee an offline reload. No service worker is included. Small open models can invent facts, ignore instructions, repeat stereotypes or produce inappropriate text. Prompts are not safety filters. Use teacher supervision and your school's policies, particularly for younger students, and keep personal information out of prompts and notes.
 
 ## Development checks
 
-For development only, append `?resetCookies=1` to the setup, experiment picker or chat URL to restart the welcome and hints and clear all experiment badges, for example `index.html?resetCookies=1` or `chat.html?engine=wllama&tier=tiny&resetCookies=1`. This clears Tiny Thinker's `tinythinker_welcome`, current `tinythinker_tour_v2` and legacy `tinythinker_tour` cookies at the site-folder and root paths, plus the `tinythinker.experiment-progress` local-storage entry, before the page initializes hints and badges. Other cookies, saved settings and cached models are untouched. The parameter is removed from the address bar after use, preserving other parameters and the fragment, so reloading does not reset progress again. It is not shown as a student-facing control. Browser storage restrictions can prevent badge data from being removed.
+For development only, append `?resetCookies=1` to the setup, experiment picker or chat URL to restart the welcome and hints and clear all experiment badges, for example `index.html?resetCookies=1` or `chat.html?engine=wllama&tier=tiny&resetCookies=1`. This clears Tiny Thinker's `tinythinker_welcome`, current `tinythinker_tour_v2` and legacy `tinythinker_tour` cookies at the site-folder and root paths, plus the `tinythinker.experiment-progress` and `tinythinker.experiment-hints` local-storage entries, before the page initializes hints and badges. Other cookies, saved settings and cached models are untouched. The parameter is removed from the address bar after use, preserving other parameters and the fragment, so reloading does not reset progress again. It is not shown as a student-facing control. Browser storage restrictions can prevent badge data from being removed.
 
 ### Implementation notes
 
 - **Activity catalog:** [experiments.js](experiments.js) defines the modes, including the `concept` tag shown on the experiment cards. Their menu numbers follow catalog order, so adding or reordering activities renumbers them. Unknown activity IDs in links fall back to Free chat.
-- **Page flow and tips:** [check.js](check.js), [picker.js](picker.js) and [chat.js](chat.js) drive the three steps. [tour.js](tour.js) shows the first-run tips and keeps their progress in the `tinythinker_tour_v2` cookie (0-6, scoped to the site folder). [loading.js](loading.js) builds the loading window's progress, educational notes, and short experiment and model summaries from [catalog.json](catalog.json).
+- **Page flow and tips:** [check.js](check.js), [picker.js](picker.js) and [chat.js](chat.js) drive the three steps. [tour.js](tour.js) shows the first-run tips and keeps their progress in the `tinythinker_tour_v2` cookie (0-6, scoped to the site folder). Once those are done, it also shows the once-only experiment tips defined by each activity's `hint` in [experiments.js](experiments.js). [loading.js](loading.js) builds the loading window's progress, educational notes, and short experiment and model summaries from [catalog.json](catalog.json).
 - **Small-model instructions:** tiny and small (SmolLM2) often ignore system prompts. With `weakSystemPrompt` enabled in [catalog.json](catalog.json), the app also repeats those instructions before the newest question; the displayed question is unchanged. In a limited Shakespeare comparison, in-style replies rose from 0/6 to 4/6 on tiny and from 2/6 to 6/6 on small.
 - **Turtle sandbox:** [turtle.js](turtle.js) adapts the locally vendored jslogo parser/interpreter to bounded SVG drawing. Its primitive allowlist excludes host access and unrestricted workspace operations. See [Draw with Turtle artist](#draw-with-turtle-artist) for syntax and limits.
 - **Turtle evaluation:** deterministic tests cover standard syntax, procedures, arithmetic, coordinate conventions, drawing state, extraction and resource limits. Browser checks cover model repair feedback and editable rendering. Passing syntax and drawing tests does not establish that a model followed the requested shape or chose correct angles.
@@ -378,5 +379,7 @@ node tests/browser-smoke.mjs --real-gpu
 ```
 
 The smoke test normally substitutes a delayed fake engine to test presets, popups, late replies after reset, exports, routing between setup, experiment list and chat, the first-run tips, the loading window and mobile layout without model downloads. `--real-cpu` additionally loads the local tiny CPU model and generates a short reply, requiring CDN access. `--real-gpu` tries the GPU build and reports a skip if no adapter is available. Screenshots go to ignored `test-results/`. Set `PREVIEW_URL` for another preview address, or `PLAYWRIGHT_MODULE` to the absolute entry-module path of an existing Playwright installation.
+
+For real-model prompt comparisons across all five tiers and all activities, run `node tests/prompt-grid.mjs --phase=baseline`, change presets, then run `node tests/prompt-grid.mjs --phase=candidate`. This uses Microsoft Edge, WebGPU f16 builds and the same message builder as chat, without fake replies. Raw prompts, settings, responses and scores are saved under ignored `test-results/`. See [Prompt evaluation](docs/prompt-evaluation.md) for results, held-out checks, CPU options and scoring limitations.
 
 The tests leave `__pycache__/` and `test-results/` folders behind; see [Clean up before uploading](#clean-up-before-uploading).
